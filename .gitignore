@@ -1,0 +1,36 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Local env (secrets baked at build time); keep the documented template.
+.env
+.env.*
+!.env.example
+
+# build output / caches
+.vite/
+coverage/
+stats.html
+
+# Electron packaging output
+release/
+out/
+
+# Capacitor native projects (generated via `npx cap add`)
+/android/
+/ios/
+.capacitor/
+
+# editor
+.DS_Store
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# legacy reference source (kept locally, not part of the rebuild)
+_legacy/
+
+# Nextcloud-app build output
+dist-nc/

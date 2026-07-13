@@ -1,0 +1,126 @@
+/*
+ * KeeWeb theme variants. `useTheme` toggles `.dark`/`.light` (so Nuxt UI's base
+ * neutral tokens apply) and adds a `th-<key>` class. Here we override the
+ * accent (`--ui-primary`) for every theme and the surface tokens
+ * (`--ui-bg*`, `--ui-text*`, `--ui-border*`) for the themes that need a
+ * distinctive palette (solarized, terminal, brown, high-contrast).
+ */
+
+/* --- Accents (all themes) --- */
+.th-dark { --ui-primary: #4a90e2; }
+.th-light { --ui-primary: #2f6fbf; }
+.th-fb { --ui-primary: #2196f3; }
+.th-bl { --ui-primary: #1976d2; }
+
+/* --- Solarized dark --- */
+.th-sd {
+  --ui-primary: #268bd2;
+  --ui-bg: #002b36;
+  --ui-bg-muted: #073642;
+  --ui-bg-elevated: #073642;
+  --ui-bg-accented: #094b57;
+  --ui-text: #93a1a1;
+  --ui-text-muted: #657b83;
+  --ui-text-highlighted: #fdf6e3;
+  --ui-border: #073642;
+  --ui-border-muted: #073642;
+  --ui-border-accented: #094b57;
+}
+
+/* --- Solarized light --- */
+.th-sl {
+  --ui-primary: #268bd2;
+  --ui-bg: #fdf6e3;
+  --ui-bg-muted: #eee8d5;
+  --ui-bg-elevated: #eee8d5;
+  --ui-bg-accented: #e3ddc7;
+  --ui-text: #586e75;
+  --ui-text-muted: #93a1a1;
+  --ui-text-highlighted: #002b36;
+  --ui-border: #eee8d5;
+  --ui-border-muted: #eee8d5;
+  --ui-border-accented: #ddd6c1;
+}
+
+/* --- Dark brown --- */
+.th-db {
+  --ui-primary: #d3a04a;
+  --ui-bg: #26211d;
+  --ui-bg-muted: #322b25;
+  --ui-bg-elevated: #322b25;
+  --ui-bg-accented: #40362d;
+  --ui-text: #d8ccbd;
+  --ui-text-muted: #a08f7c;
+  --ui-border: #322b25;
+  --ui-border-accented: #40362d;
+}
+
+/* --- Light brown --- */
+.th-lb {
+  --ui-primary: #a5702a;
+  --ui-bg: #f5efe6;
+  --ui-bg-muted: #ece3d5;
+  --ui-bg-elevated: #ece3d5;
+  --ui-bg-accented: #ddd0bb;
+  --ui-text: #5a4a36;
+  --ui-text-muted: #8a765b;
+  --ui-border: #ece3d5;
+  --ui-border-accented: #ddd0bb;
+}
+
+/* --- Terminal (green on black) --- */
+.th-te {
+  --ui-primary: #33ff66;
+  --ui-bg: #000000;
+  --ui-bg-muted: #0a0f0a;
+  --ui-bg-elevated: #0d160d;
+  --ui-bg-accented: #12221a;
+  --ui-text: #33ff66;
+  --ui-text-muted: #1f9940;
+  --ui-text-highlighted: #7dffa3;
+  --ui-border: #12331f;
+  --ui-border-accented: #1a4a2c;
+}
+
+/* --- Light terminal --- */
+.th-lt {
+  --ui-primary: #0a7d2c;
+  --ui-bg: #f5fff7;
+  --ui-bg-muted: #e6f7ea;
+  --ui-bg-elevated: #e6f7ea;
+  --ui-bg-accented: #d3edd8;
+  --ui-text: #0a3d18;
+  --ui-text-muted: #3f6b49;
+  --ui-border: #d3edd8;
+  --ui-border-accented: #bfe0c6;
+}
+
+/* --- High contrast (light) --- */
+.th-hc {
+  --ui-primary: #0057d8;
+  --ui-bg: #ffffff;
+  --ui-bg-muted: #f0f0f0;
+  --ui-bg-elevated: #f0f0f0;
+  --ui-bg-accented: #e0e0e0;
+  --ui-text: #000000;
+  --ui-text-muted: #333333;
+  --ui-text-highlighted: #000000;
+  --ui-border: #000000;
+  --ui-border-muted: #444444;
+  --ui-border-accented: #000000;
+}
+
+/* --- Dark contrast --- */
+.th-dc {
+  --ui-primary: #ffd400;
+  --ui-bg: #000000;
+  --ui-bg-muted: #101010;
+  --ui-bg-elevated: #141414;
+  --ui-bg-accented: #1f1f1f;
+  --ui-text: #ffffff;
+  --ui-text-muted: #cccccc;
+  --ui-text-highlighted: #ffffff;
+  --ui-border: #ffffff;
+  --ui-border-muted: #888888;
+  --ui-border-accented: #ffffff;
+}

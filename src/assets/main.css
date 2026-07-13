@@ -1,0 +1,80 @@
+@import 'tailwindcss';
+@import '@nuxt/ui';
+@import './themes.css';
+
+/* Source files Tailwind should scan for class usage. */
+@source '../../src/**/*.{vue,ts}';
+
+/*
+ * KeeWeb theme surface. Nuxt UI drives its own design tokens; we layer a small
+ * set of app-level variables so entry colors / password strength / titlebar can
+ * be themed consistently in both light and dark modes.
+ */
+:root {
+  --kw-titlebar-h: 3rem;
+  --kw-menu-w: 15rem;
+  --kw-list-w: 22rem;
+  --kw-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* entry color swatches (KeePass palette) */
+  --kw-color-red: #f5524c;
+  --kw-color-orange: #f5a623;
+  --kw-color-yellow: #f8e71c;
+  --kw-color-green: #7ed321;
+  --kw-color-blue: #4a90e2;
+  --kw-color-violet: #9013fe;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+/*
+ * Scale the whole (rem-based) UI up a notch on small / touch screens so
+ * controls and text are comfortable on mobile. Nuxt UI sizing is rem-based, so
+ * this compounds with the larger `lg` control defaults set in vite.config.ts.
+ */
+@media (max-width: 767px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+/*
+ * Touch-target sizing lives in the Nuxt UI theme config (vite.config.ts):
+ * on max-md screens every control size promotes to `xl` metrics. Custom rows
+ * (entry list, menu tree) carry their own max-md:min-h utilities. The only
+ * global touch rule here is removing the double-tap-to-zoom delay.
+ */
+@media (pointer: coarse) {
+  button,
+  [role='button'],
+  input,
+  select,
+  textarea,
+  a {
+    touch-action: manipulation;
+  }
+}
+
+/* Monospace for secret values */
+.kw-mono {
+  font-family: var(--kw-mono);
+  font-variant-ligatures: none;
+}
+
+/* Password strength gradient bar */
+.kw-strength-bar {
+  transition: width 0.2s ease, background-color 0.2s ease;
+}
+
+/* Selection highlight for entry list rows */
+.kw-selectable {
+  user-select: none;
+}

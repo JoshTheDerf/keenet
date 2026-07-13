@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Strict CSP. Notes:
+      - connect-src must stay `https:` (not an allowlist): besides HIBP and the
+        Dropbox/Google/Microsoft OAuth+API endpoints, users configure arbitrary
+        WebDAV/Nextcloud origins at runtime.
+      - 'wasm-unsafe-eval' is required by hash-wasm (Argon2 KDF compiles wasm
+        from bytes) — without it every database open/create fails.
+      - 'unsafe-inline' styles are required by Vue/Nuxt UI runtime styling.
+      - frame-ancestors is intentionally absent here: browsers ignore it in
+        <meta> CSPs per spec, and the web build supports an intentional iframe
+        embed (Nextcloud app). The Electron build enforces `frame-ancestors
+        'none'` via response headers in electron/main.cjs.
+      - In dev this tag is rewritten by the csp-dev plugin in vite.config.ts to
+        additionally allow the HMR websocket (ws:).
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; connect-src 'self' https:"
+    />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content="Free cross-platform password manager compatible with KeePass" />
+    <title>KeeNet</title>
+  </head>
+  <body class="h-full antialiased">
+    <div id="app" class="h-full"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
