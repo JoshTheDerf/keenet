@@ -41,7 +41,8 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          # Capacitor 8's Android modules require JDK 21 (source release 21).
+          java-version: '21'
 
       - uses: android-actions/setup-android@v3
 
@@ -137,7 +138,9 @@ jobs:
           PROFILE_NAME: ${{ secrets.IOS_PROVISION_PROFILE_NAME }}
           EXPORT_METHOD: ${{ secrets.IOS_EXPORT_METHOD }} # app-store | ad-hoc | development
         run: |
-          [ -f Podfile ] && pod install || true
+          set -e
+          if [ -f Podfile ]; then pod install --repo-update; fi
+          if [ -d App.xcworkspace ]; then C="-workspace App.xcworkspace"; else C="-project App.xcodeproj"; fi
           cat > ExportOptions.plist <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -149,7 +152,7 @@ jobs:
             <dict><key>com.thederf.keenet.app</key><string>${PROFILE_NAME}</string></dict>
           </dict></plist>
           PLIST
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release \
+          xcodebuild $C -scheme App -configuration Release \
             -archivePath "$PWD/build/App.xcarchive" archive \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Manual \
             PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME"
@@ -160,8 +163,12 @@ jobs:
         if: steps.profile.outputs.signed != 'true'
         working-directory: ios/App
         run: |
-          [ -f Podfile ] && pod install || true
-          xcodebuild -workspace App.xcworkspace -scheme App \
+          set -e
+          # CocoaPods projects build via the .xcworkspace (created by pod install);
+          # SPM-based projects build via the .xcodeproj directly.
+          if [ -f Podfile ]; then pod install --repo-update; fi
+          if [ -d App.xcworkspace ]; then C="-workspace App.xcworkspace"; else C="-project App.xcodeproj"; fi
+          xcodebuild $C -scheme App \
             -configuration Release -sdk iphonesimulator \
             CODE_SIGNING_ALLOWED=NO build
 
