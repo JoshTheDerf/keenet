@@ -1,6 +1,6 @@
 [package]
 name = "keenet"
-version = "2.0.0"
+version = "1.0.0"
 description = "KeeNet desktop"
 authors = ["KeeNet"]
 edition = "2021"

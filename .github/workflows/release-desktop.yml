@@ -57,7 +57,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install frontend dependencies
@@ -123,14 +123,24 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
-      # Always keep the bundles as downloadable artifacts (covers manual runs and
-      # gives per-OS archives even for tag builds). The `*/release` glob catches
-      # the macOS universal target subdir.
+      # Collect the distributable installers into a flat dir so the actual
+      # .AppImage/.deb/.dmg/.msi/.exe sit at the artifact root (not nested under
+      # bundle/<type>/). Restricted to files under a bundle/ dir (skips the raw
+      # binary); `-path` also catches the macOS universal-apple-darwin subdir.
+      - name: Collect bundles
+        shell: bash
+        run: |
+          mkdir -p dist-artifacts
+          find src-tauri/target -type f -path '*/bundle/*' \( \
+            -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \
+            -o -name '*.dmg' -o -name '*.app.tar.gz' \
+            -o -name '*.msi' -o -name '*.exe' -o -name '*.sig' \) \
+            -exec cp {} dist-artifacts/ \;
+          ls -la dist-artifacts
+
       - name: Upload bundles as artifacts
         uses: actions/upload-artifact@v4
         with:
           name: keenet-desktop-${{ matrix.platform }}
           if-no-files-found: warn
-          path: |
-            src-tauri/target/release/bundle/**/*
-            src-tauri/target/*/release/bundle/**/*
+          path: dist-artifacts/*

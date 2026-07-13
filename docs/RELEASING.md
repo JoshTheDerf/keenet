@@ -12,8 +12,8 @@ KeeNet ships from three GitHub Actions workflows:
 
 ```bash
 # bump "version" in package.json and src-tauri/tauri.conf.json to match, then:
-git tag v2.0.0
-git push origin v2.0.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 Tag builds attach desktop bundles to a **draft** GitHub Release (review, then publish) and upload mobile artifacts. Manual runs (Actions → *Run workflow*) build the same and upload everything as workflow artifacts, without a release.
