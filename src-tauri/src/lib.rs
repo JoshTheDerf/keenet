@@ -19,10 +19,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
-use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
-    AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent, Wry,
+    AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
@@ -591,78 +591,6 @@ fn autotype_shortcut() -> Shortcut {
     Shortcut::new(Some(m), Code::KeyA)
 }
 
-fn build_app_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
-    let is_mac = cfg!(target_os = "macos");
-    let mut mb = MenuBuilder::new(app);
-
-    if is_mac {
-        let app_menu = SubmenuBuilder::new(app, "KeeNet")
-            .about(None)
-            .separator()
-            .hide()
-            .hide_others()
-            .show_all()
-            .separator()
-            .quit()
-            .build()?;
-        mb = mb.item(&app_menu);
-    }
-
-    let file = {
-        let b = SubmenuBuilder::new(app, "File")
-            .item(&MenuItemBuilder::with_id("open", "Open…").accelerator("CmdOrCtrl+O").build(app)?)
-            .item(&MenuItemBuilder::with_id("new", "New").accelerator("CmdOrCtrl+N").build(app)?)
-            .item(&MenuItemBuilder::with_id("save", "Save").accelerator("CmdOrCtrl+S").build(app)?)
-            .separator()
-            .item(&MenuItemBuilder::with_id("lock", "Lock").accelerator("CmdOrCtrl+L").build(app)?)
-            .separator();
-        if is_mac { b.close_window() } else { b.quit() }.build()?
-    };
-
-    let edit = SubmenuBuilder::new(app, "Edit")
-        .undo()
-        .redo()
-        .separator()
-        .cut()
-        .copy()
-        .paste()
-        .select_all()
-        .build()?;
-
-    let view = SubmenuBuilder::new(app, "View")
-        .item(
-            &MenuItemBuilder::with_id("generate", "Generate Password…")
-                .accelerator("CmdOrCtrl+G")
-                .build(app)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("settings", "Settings…")
-                .accelerator("CmdOrCtrl+,")
-                .build(app)?,
-        )
-        .separator()
-        .fullscreen()
-        .build()?;
-
-    let window = SubmenuBuilder::new(app, "Window")
-        .minimize()
-        .maximize()
-        .build()?;
-
-    mb = mb.item(&file).item(&edit).item(&view).item(&window);
-    mb.build()
-}
-
-/// Menu clicks are forwarded to the renderer as `menu-action` (parity with the
-/// Electron build). Predefined items (quit/copy/…) are handled natively.
-fn on_menu_event(app: &AppHandle, id: &str) {
-    if matches!(id, "open" | "new" | "save" | "lock" | "generate" | "settings") {
-        if let Some(w) = app.get_webview_window("main") {
-            let _ = w.emit("menu-action", id);
-        }
-    }
-}
-
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItemBuilder::with_id("tray_show", "Show / Hide").build(app)?;
     let lock = MenuItemBuilder::with_id("tray_lock", "Lock").build(app)?;
@@ -744,10 +672,17 @@ pub fn run() {
                 data_dir,
             });
 
-            // Menu + tray.
-            let menu = build_app_menu(&handle)?;
-            app.set_menu(menu)?;
-            app.on_menu_event(|app, event| on_menu_event(app, event.id().as_ref()));
+            // No application menu on Windows/Linux (the previous custom menu's
+            // File/View items were non-functional). macOS still needs a menu for
+            // the standard Cmd+C/V/X/A editing shortcuts and Quit to work in the
+            // webview, so give it Tauri's default menu there.
+            #[cfg(target_os = "macos")]
+            {
+                let menu = tauri::menu::Menu::default(&handle)?;
+                app.set_menu(menu)?;
+            }
+
+            // Tray.
             build_tray(&handle)?;
 
             // Global shortcuts.
