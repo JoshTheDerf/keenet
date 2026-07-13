@@ -71,23 +71,50 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
+      # Decide whether macOS signing material is available. Passing an EMPTY
+      # APPLE_CERTIFICATE makes tauri attempt (and fail) `security import`, so we
+      # only pass the Apple env when the cert secret is actually set.
+      - name: Detect macOS signing
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            echo "HAS_APPLE_SIGNING=true" >> "$GITHUB_ENV"
+          else
+            echo "HAS_APPLE_SIGNING=false" >> "$GITHUB_ENV"
+          fi
+
       # Builds the web app (via tauri.conf beforeBuildCommand) + the Rust shell,
       # then bundles. On a tag it creates a draft release; otherwise it just builds.
-      - name: Build Tauri app
-        id: tauri
+
+      # macOS with signing configured: pass the Apple cert/notarization env.
+      - name: Build Tauri app (macOS, signed)
+        if: matrix.platform == 'macos-latest' && env.HAS_APPLE_SIGNING == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # --- macOS signing + notarization (optional) ---
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # --- Tauri updater signing (optional; only if you ship the updater) ---
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: 'KeeNet ${{ github.ref_name }}'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      # Everything else (Linux, Windows, and macOS without signing secrets):
+      # build unsigned. No Apple env, so no codesign attempt.
+      - name: Build Tauri app (unsigned)
+        if: matrix.platform != 'macos-latest' || env.HAS_APPLE_SIGNING != 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           # Empty tagName on manual runs → build only, no release.
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
