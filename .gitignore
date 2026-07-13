@@ -13,9 +13,9 @@ dist-ssr/
 coverage/
 stats.html
 
-# Electron packaging output
-release/
-out/
+# Tauri (Rust build artifacts + generated mobile/desktop projects)
+/src-tauri/target/
+/src-tauri/gen/
 
 # Capacitor native projects (generated via `npx cap add`)
 /android/

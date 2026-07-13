@@ -79,10 +79,9 @@ pull→**merge**→push sync · auto-save + interval · rotating **backups** (In
 **CSV import** (column mapping) · **import/merge another KDBX** · **XML + HTML
 export**.
 
-Desktop (**Electron**): native local-file open/save · system **tray** +
-minimize/close-to-tray · **powerMonitor** lock on OS-lock/suspend · **global
-shortcuts** · native clipboard auto-clear · **auto-type** (OS keystroke
-injection via an optional native module).
+Desktop (**Tauri**): native local-file open/save · system **tray** +
+close-to-tray · **global shortcuts** · native clipboard auto-clear ·
+**auto-type** (OS keystroke injection via `enigo`) · OS-keychain secret storage.
 
 ## Security
 
@@ -91,26 +90,30 @@ injection via an optional native module).
   `rel="noopener noreferrer"`); vault content is treated as untrusted input.
 - **Content-Security-Policy**: strict CSP in the built `index.html`
   (`default-src 'self'`, no inline/eval scripts; `wasm-unsafe-eval` only for
-  Argon2), relaxed automatically in dev; re-enforced in Electron via response
-  headers.
-- **Electron hardening**: `sandbox: true` + `contextIsolation`, minimal typed
-  preload bridge, deny-all `setWindowOpenHandler` (external links open in the OS
-  browser), `will-navigate` locked to the app origin, and file read/write IPC
-  restricted to paths granted through native dialogs (grants persisted by the
-  main process only).
+  Argon2), relaxed automatically in dev; enforced in the Tauri build via
+  `tauri.conf.json` (`app.security.csp`, adding `frame-ancestors 'none'`).
+- **Tauri hardening**: system-webview shell (no bundled Chromium) with a
+  capability allowlist, all native features behind app-defined commands, and
+  file read/write commands restricted to paths granted through native dialogs
+  (grants persisted only by the Rust backend). External OAuth pages open in a
+  dedicated `oauth` window whose redirect navigation is intercepted, never
+  loaded.
 - **OAuth**: dependency-free PKCE (S256) as **public clients** — no client
   secrets in the bundle; `state` validated on web, desktop, and mobile flows.
 - **Secret storage**: OAuth tokens and the WebDAV password are kept in the OS
-  keychain — Electron `safeStorage` on desktop, Keystore/Keychain on mobile —
-  never in plaintext files; on web they stay in localStorage (no keychain
-  exists there) with the strict CSP/XSS hardening as the mitigating control,
-  and legacy plaintext values are migrated and scrubbed on first run.
+  keychain — the `keyring` crate on desktop (Keychain / Credential Manager /
+  Secret Service), Keystore/Keychain on mobile — never in plaintext files; on
+  web they stay in localStorage (no keychain exists there) with the strict
+  CSP/XSS hardening as the mitigating control, and legacy plaintext values are
+  migrated and scrubbed on first run. On a headless Linux box with no Secret
+  Service, desktop secrets fall back to a base64-obfuscated file (not
+  encryption — matches the prior desktop fallback behavior).
 - **HIBP**: k-anonymity (only a 5-char SHA-1 prefix leaves the device), with
   response padding.
-- **Supply chain**: all dependencies pinned to exact versions (`save-exact`),
+- **Supply chain**: all JS dependencies pinned to exact versions (`save-exact`),
   lockfile installs via `npm ci`, `npm run audit` script, no postinstall
-  scripts, no network access in build scripts; the optional native auto-type
-  module resolves only from the app's own `node_modules`.
+  scripts, no network access in build scripts; the Rust desktop crate pins its
+  dependencies via `Cargo.lock`.
 - Backups and offline cache store **ciphertext only**; the master password is
   never persisted.
 
@@ -119,16 +122,25 @@ Known upstream advisories (tracked, not fixable here without downgrades):
 
 Intentionally out of scope: the KeeWeb **plugin system** and the **browser-
 extension native-messaging connector** (a separate companion app). Desktop
-cross-app auto-type requires installing an optional native keystroke module
-(`@nut-tree-fork/nut-js` or `robotjs`); it's wired end-to-end and degrades
-gracefully when absent.
+auto-type uses the `enigo` crate; keystroke injection is limited under Wayland
+(an X11 session is recommended for auto-type on Linux).
 
-## Desktop build
+One capability from the former Electron shell is **not yet ported**: locking the
+vault automatically on OS screen-lock/suspend (there is no built-in Tauri power
+monitor). The event plumbing exists (`lock` is emitted to the renderer); wiring
+a platform power-event source is a tracked follow-up.
+
+## Desktop build (Tauri)
+
+Requires the Rust toolchain plus the platform webview dev libraries (on Ubuntu:
+`libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libsoup-3.0-dev`, `librsvg2-dev`,
+`libayatana-appindicator3-dev`, `libxdo-dev`, and `pkg-config`).
 
 ```bash
-npm run electron:start   # build web + launch Electron
-npm run electron:dev     # Electron against the Vite dev server
-npm run electron:build   # package with electron-builder (dmg/nsis/AppImage)
+npm run desktop:dev      # Tauri dev: launches the Rust shell against Vite HMR
+npm run desktop:build    # build web + package (deb/AppImage/nsis/dmg)
+npm run tauri -- icon public/icons/icon-512.png   # (re)generate platform icons,
+                                                  # incl. macOS .icns / Win .ico
 ```
 
 ## PWA
@@ -138,7 +150,7 @@ web app manifest + maskable icons, an auto-updating service worker that
 precaches the app shell (external calls — HIBP, cloud providers, OAuth — are
 always network and never intercepted). Install from the browser's "Install app"
 prompt; it launches standalone and works offline. The service worker is skipped
-inside the Electron and native mobile shells (they load bundled assets).
+inside the Tauri desktop and native mobile shells (they load bundled assets).
 
 ## Mobile build (Capacitor)
 
@@ -157,6 +169,16 @@ npm run cap:sync          # rebuild web + copy assets/plugins into native projec
 
 Building the APK/IPA needs the platform SDKs (Android Studio/JDK, or
 Xcode/CocoaPods on macOS); the `android/` project is generated and synced.
+
+## Releases & CI
+
+Three GitHub Actions workflows: `ci.yml` validates every push/PR (typecheck ·
+lint · test · web build · audit); `release-desktop.yml` builds the Tauri app for
+Linux/macOS/Windows; `release-mobile.yml` builds the Capacitor Android + iOS apps
+(native projects regenerated in CI). Both release workflows run on a `v*` tag or
+manual dispatch and produce **unsigned** builds until signing secrets are added.
+See **[docs/RELEASING.md](docs/RELEASING.md)** for how to cut a release and set up
+code signing (Apple Developer, Android keystore, Windows cert) per platform.
 
 ## Deployment
 

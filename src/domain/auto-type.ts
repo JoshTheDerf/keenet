@@ -2,7 +2,7 @@
  * Auto-type sequence parsing (KeePass syntax) + a pluggable emitter.
  *
  * The parser turns a sequence like `{USERNAME}{TAB}{PASSWORD}{ENTER}` into a
- * list of ops. Emission is platform-specific: the desktop (Electron) registers
+ * list of ops. Emission is platform-specific: the desktop (Tauri) registers
  * a native emitter that injects real OS keystrokes; the web build falls back to
  * typing into the focused field (or copying the resolved text).
  */

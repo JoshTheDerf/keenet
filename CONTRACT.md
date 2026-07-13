@@ -89,7 +89,7 @@ Storage registry — `@/storage`:
 - `@/storage/filesystem`: `fileSystemProvider`, `chooseFolder()`, `hasFolder()`, `supportsFileSystemAccess()`.
 - `@/storage/backup`: `createBackup`, `listBackups(fileId)→BackupEntry[]`, `restoreBackup(key)→ArrayBuffer`, `removeBackup(key)`.
 - WebDAV load config shape: `{url,user,password}`.
-- `@/storage/secret-store`: pluggable secret storage (`secretStore` facade: async `get/set/remove`, sync `getCached`, `preload`; `registerSecretBackend` for platform shells). OAuth token sets and the WebDAV password live here — OS-keychain-backed on desktop (Electron `safeStorage`) and mobile (Keystore/Keychain via capacitor-native-biometric), `keeweb-secret:`-prefixed localStorage on web. `main.ts` awaits `secretStore.preload()` before mount, so cached reads (e.g. `settings.webdav.password`, `isTokenValid`) are hydrated by first render. Never persist a secret anywhere else.
+- `@/storage/secret-store`: pluggable secret storage (`secretStore` facade: async `get/set/remove`, sync `getCached`, `preload`; `registerSecretBackend` for platform shells). OAuth token sets and the WebDAV password live here — OS-keychain-backed on desktop (Tauri `keyring` crate) and mobile (Keystore/Keychain via capacitor-native-biometric), `keeweb-secret:`-prefixed localStorage on web. `main.ts` awaits `secretStore.preload()` before mount, so cached reads (e.g. `settings.webdav.password`, `isTokenValid`) are hydrated by first render. Never persist a secret anywhere else.
 
 ## Ported features API (added)
 
@@ -117,7 +117,7 @@ Domain modules:
 - `@/domain/references`: `resolveFieldReferences`, `hasFieldReferences`.
 - `@/domain/kdbx-to-html`: `exportToHtml(fileName, entries, epochMs)→string`.
 
-**Desktop bridge**: when running under Electron, `window.keeweb` (typed in `@/types/desktop.d.ts`) is present. Check `isDesktop()` from `@/composables/useDesktop`. Native file ops, tray, auto-type go through it.
+**Desktop bridge**: when running under the Tauri desktop shell, `window.keeweb` (typed in `@/types/desktop.d.ts`) is installed by `@/desktop/tauri-bridge` (backed by Rust commands in `src-tauri/`). Check `isDesktop()` from `@/composables/useDesktop`. Native file ops, tray, auto-type go through it.
 
 ## Conventions
 - All components `<script setup lang="ts">`, fully typed, no `any`. `npm run lint` (eslint flat config) must pass.

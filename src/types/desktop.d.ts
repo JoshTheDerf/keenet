@@ -1,5 +1,6 @@
 /**
- * Desktop (Electron) bridge exposed on `window.keeweb` via contextBridge.
+ * Desktop bridge exposed on `window.keeweb`. Installed by `@/desktop/tauri-bridge`
+ * under the Tauri shell (backed by Rust commands in `src-tauri/`).
  * Present only in the packaged/desktop build; always guard with `isDesktop()`.
  */
 export interface DesktopFileInfo {
@@ -36,8 +37,9 @@ export interface KeeWebDesktopApi {
   }>;
 
   /**
-   * OS-keychain-backed secret storage: values are encrypted with Electron's
-   * `safeStorage` in the main process and persisted to `userData/secrets.json`.
+   * OS-keychain-backed secret storage: values live in the OS keychain via the
+   * Rust backend's `keyring` crate (falling back to a base64-obfuscated file in
+   * the app data dir when no keychain service is available).
    */
   secretGet(key: string): Promise<string | null>;
   secretSet(key: string, value: string): Promise<void>;

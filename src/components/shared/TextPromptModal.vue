@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Small single-input prompt dialog — replaces window.prompt(), which is
- * unreliable in Electron and on mobile. Emits `confirm` with the trimmed
+ * unreliable in native webviews and on mobile. Emits `confirm` with the trimmed
  * value; closes itself on confirm or cancel.
  */
 import { ref, watch } from 'vue';

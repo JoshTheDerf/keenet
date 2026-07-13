@@ -1,5 +1,5 @@
 /** Clipboard copy with auto-clear after the configured timeout. The writer is
- * pluggable so the native shells (Electron / Capacitor) can supply a
+ * pluggable so the native shells (Tauri / Capacitor) can supply a
  * platform-appropriate implementation. */
 import { useSettingsStore } from '@/stores/settings';
 import { useUiStore } from '@/stores/ui';

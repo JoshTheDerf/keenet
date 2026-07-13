@@ -1,4 +1,4 @@
-/** Access to the Electron desktop bridge (`window.keeweb`), if present. */
+/** Access to the desktop bridge (`window.keeweb`), if present. */
 import type { KeeWebDesktopApi } from '@/types/desktop';
 
 export function isDesktop(): boolean {

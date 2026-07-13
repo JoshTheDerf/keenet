@@ -21,7 +21,7 @@ export function getProvider(type: string): StorageProvider | undefined {
 
 /**
  * Register an extra provider at runtime if no provider with its `type` exists.
- * Used by the desktop bootstrap to add the native `file` provider under Electron.
+ * Used by the desktop bootstrap to add the native `file` provider under Tauri.
  */
 export function registerProvider(p: StorageProvider): void {
   if (!PROVIDERS.some((existing) => existing.type === p.type)) {

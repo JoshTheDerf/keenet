@@ -1,11 +1,11 @@
 /**
- * Native local-file storage provider (Electron only).
+ * Native local-file storage provider (desktop only).
  *
  * Represents `.kdbx` files on the local filesystem addressed by their absolute
  * path, going through the `window.keeweb` desktop bridge. It reuses the `'file'`
  * StorageType. In the browser build there is no `window.keeweb`, so every call
  * throws — the browser uses the `fsaccess` provider instead. This provider is
- * only ever registered at runtime (see `@/desktop/register`) under Electron.
+ * only ever registered at runtime (see `@/desktop/register`) under Tauri.
  */
 import type { StorageProvider, StorageLoadResult, StorageFileStat } from './types';
 

@@ -16,6 +16,14 @@ import { initDesktop } from '@/desktop/register';
 import '@/assets/main.css';
 
 async function bootstrap(): Promise<void> {
+  // Under the Tauri desktop shell, install the `window.keeweb` bridge before
+  // anything checks for it (initDesktop, the PWA guard below). The dynamic
+  // import keeps @tauri-apps/* out of the browser bundle. No-op on web/mobile.
+  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+    const { installTauriBridge } = await import('@/desktop/tauri-bridge');
+    await installTauriBridge();
+  }
+
   // If this page load is an OAuth popup callback, post the code back and close.
   initOAuthCallback();
 
@@ -23,7 +31,7 @@ async function bootstrap(): Promise<void> {
   initKdbxweb();
 
   // Wire native desktop integrations (no-op in the browser build). Registers
-  // the safeStorage-backed secret backend under Electron.
+  // the OS-keychain secret backend under the Tauri desktop shell.
   initDesktop();
 
   // Wire native mobile (Capacitor) integrations BEFORE hydrating stores: this
@@ -61,7 +69,7 @@ async function bootstrap(): Promise<void> {
   app.mount('#app');
 
   // Register the PWA service worker only in a real browser (not inside the
-  // native webview or Electron), and not when embedded in another page (e.g.
+  // native webview or Tauri desktop shell), and not when embedded in another page (e.g.
   // the Nextcloud app iframe) — a SW there would needlessly cache the host's
   // subpath.
   const embedded = (() => {

@@ -17,7 +17,9 @@ function cspDevPlugin(): Plugin {
     transformIndexHtml(html) {
       return html.replace(
         /(http-equiv="Content-Security-Policy"[^>]*connect-src 'self' https:)/,
-        "$1 ws: wss: http://localhost:* http://127.0.0.1:*"
+        // ws/http: Vite HMR. ipc/http://ipc.localhost: Tauri IPC when the desktop
+        // shell runs against this dev server (tauri.conf.json CSP covers prod).
+        "$1 ws: wss: http://localhost:* http://127.0.0.1:* ipc: http://ipc.localhost"
       );
     }
   };
@@ -58,7 +60,7 @@ const touchInputSizes = Object.fromEntries(TOUCH_SIZES.map((s) => [s, touchInput
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   // Public base path. Defaults to a relative base so the same build works at
-  // any mount point (Electron file://, Capacitor, Nextcloud embed). For the
+  // any mount point (Tauri asset protocol, Capacitor, Nextcloud embed). For the
   // Cloudflare Workers web deploy at keenet.thederf.com/app/, use:
   //   npm run build:web
   // which sets --base /app/ --outDir dist/app and copies landing.html to dist/.

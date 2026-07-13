@@ -7,7 +7,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * app's file:// / capacitor:// scheme.
  */
 const config: CapacitorConfig = {
-  appId: 'com.keenet.app',
+  appId: 'com.thederf.keenet.app',
   appName: 'KeeNet',
   webDir: 'dist',
   backgroundColor: '#0f172a',

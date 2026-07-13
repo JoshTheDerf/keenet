@@ -8,8 +8,8 @@
  *    the strict CSP and XSS hardening (DOMPurify, no eval/inline scripts) are
  *    the mitigation. The prefix exists so platform shells can find and migrate
  *    these values into a real keychain.
- *  - Desktop (Electron): `safeStorage` in the main process, registered by
- *    `src/desktop/register.ts`.
+ *  - Desktop (Tauri): OS keychain via the Rust backend's `keyring` crate,
+ *    registered by `src/desktop/register.ts`.
  *  - Mobile (Capacitor): Keystore/Keychain via capacitor-native-biometric,
  *    registered by `src/mobile/register.ts`.
  *

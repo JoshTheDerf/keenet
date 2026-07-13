@@ -86,8 +86,8 @@ export async function generatePkce(): Promise<PkcePair> {
 /**
  * Obtaining the authorization code is platform-specific:
  *  - Web: open a popup at our own page and receive the code via `postMessage`.
- *  - Desktop (Electron): open a child window and intercept the redirect in the
- *    main process (see `src/desktop/register.ts`).
+ *  - Desktop (Tauri): open a sign-in window and intercept the redirect in the
+ *    Rust backend (see `src/desktop/register.ts`).
  *  - Mobile (Capacitor): open the system browser and catch the custom-scheme
  *    deep link (see `src/mobile/register.ts`).
  *
@@ -223,7 +223,7 @@ function openPopupAndAwaitCode(authUrl: string, expectedState: string): Promise<
 // Token persistence (secret store, per provider)
 //
 // Token sets go through the pluggable secret store: OS-keychain-backed on
-// desktop (safeStorage) and mobile (Keystore/Keychain), prefixed localStorage
+// desktop (keyring) and mobile (Keystore/Keychain), prefixed localStorage
 // on the web. The store's in-memory cache keeps `getToken`/`isTokenValid`
 // synchronous — main.ts awaits `hydrateOAuthTokens()`/`secretStore.preload()`
 // before mount, so the cache is warm before any provider is used.
@@ -343,7 +343,7 @@ export async function oauthFlow(config: OAuthFlowConfig): Promise<StoredToken> {
 
   // CSRF / authorization-code-injection guard: the code is only accepted when
   // the redirect echoed the exact state we generated for THIS flow. Validated
-  // centrally so the desktop (Electron child window) and mobile (deep link)
+  // centrally so the desktop (Tauri sign-in window) and mobile (deep link)
   // authorizers get the same protection as the web popup.
   if (result.state !== state) {
     sessionStorage.removeItem(STATE_KEY);

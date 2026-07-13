@@ -1,7 +1,7 @@
 /**
- * Desktop (Electron) bootstrap. Safe to call unconditionally from main.ts:
- * it is a no-op in the browser and only wires native integrations when the
- * `window.keeweb` bridge is present.
+ * Desktop bootstrap. Safe to call unconditionally from main.ts: it is a no-op in
+ * the browser and only wires native integrations when the `window.keeweb` bridge
+ * is present (installed by `@/desktop/tauri-bridge` under the Tauri shell).
  */
 import { isDesktop } from '@/composables/useDesktop';
 import { t } from '@/i18n';
@@ -14,10 +14,10 @@ import { registerAutoTypeEmitter } from '@/domain/auto-type';
 import type { AutoTypeOp } from '@/domain/auto-type';
 
 /**
- * Redirect URI used for desktop OAuth. It never actually loads — the Electron
- * main process intercepts the redirect to this URL and reads the code off the
- * query string. Register this exact value as an allowed redirect URI on each
- * provider's OAuth app (Dropbox/Google "Web" client/Azure "Web").
+ * Redirect URI used for desktop OAuth. It never actually loads — the Tauri
+ * backend intercepts the redirect to this URL in the sign-in window and reads
+ * the code off the query string. Register this exact value as an allowed
+ * redirect URI on each provider's OAuth app (Dropbox/Google "Web" client/Azure "Web").
  */
 const DESKTOP_REDIRECT_URI =
   import.meta.env.VITE_OAUTH_DESKTOP_REDIRECT_URI ?? 'https://localhost/keenet-oauth';
@@ -34,22 +34,22 @@ export function initDesktop(): void {
   });
 
   // (c) Native clipboard (mirrors src/mobile/register.ts): copies go through
-  //     Electron's clipboard, which works while the window is hidden/unfocused,
-  //     and the main process' auto-clear checks the clipboard still holds our
-  //     text before clearing (never clobbers content the user copied later).
+  //     the OS clipboard, which works while the window is hidden/unfocused, and
+  //     the backend's auto-clear checks the clipboard still holds our text
+  //     before clearing (never clobbers content the user copied later).
   setClipboardWriter({ write: (text) => window.keeweb!.copyText(text) });
 
-  // (d) Secrets (OAuth tokens, WebDAV password): stored via safeStorage in the
-  //     main process (OS keychain), not in the renderer's localStorage.
+  // (d) Secrets (OAuth tokens, WebDAV password): stored in the OS keychain by
+  //     the Rust backend (keyring crate), not in the renderer's localStorage.
   registerSecretBackend({
     get: (key) => window.keeweb!.secretGet(key),
     set: (key, value) => window.keeweb!.secretSet(key, value),
     remove: (key) => window.keeweb!.secretDelete(key)
   });
 
-  // (e) OAuth: no same-origin popup exists in Electron, so open a child window
-  //     in the main process and intercept the redirect back to our URI. The
-  //     returned state is passed through — oauthFlow() validates it centrally.
+  // (e) OAuth: no same-origin popup exists in the desktop shell, so the backend
+  //     opens a dedicated sign-in window and intercepts the redirect back to our
+  //     URI. The returned state is passed through — oauthFlow() validates it.
   setOAuthAuthorizer({
     redirectUri: () => DESKTOP_REDIRECT_URI,
     authorize: async (authUrl, state) => {

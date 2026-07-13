@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Core permissions for the KeeNet windows. All native features are exposed through app-defined commands (always invokable) plus Rust-side plugin usage, so only core event/window permissions are needed here.",
+  "windows": ["main", "oauth"],
+  "permissions": ["core:default"]
+}
