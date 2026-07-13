@@ -29,7 +29,7 @@ jobs:
           - platform: macos-latest
             args: '--target universal-apple-darwin'
             rust_targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
-          - platform: ubuntu-22.04
+          - platform: ubuntu-24.04
             args: ''
             rust_targets: ''
           - platform: windows-latest
@@ -41,7 +41,7 @@ jobs:
 
       # Tauri's Linux webview + tray + auto-type build dependencies.
       - name: Install Linux build deps
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
