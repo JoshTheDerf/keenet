@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # attach the signed APK to the GitHub release on tag builds
 
 concurrency:
   group: release-mobile-${{ github.ref }}
@@ -102,6 +102,29 @@ jobs:
           name: keenet-android
           if-no-files-found: warn
           path: dist-artifacts/*
+
+      # On a tag build, also attach the signed APK to the GitHub release (created
+      # in parallel by the desktop workflow) so it's a direct download. Only runs
+      # for signed release builds — never attaches a debug APK.
+      - name: Attach APK to release
+        if: startsWith(github.ref, 'refs/tags/') && steps.keystore.outputs.signed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          apk=$(ls dist-artifacts/*.apk | head -1)
+          [ -n "$apk" ] || { echo "no APK found"; exit 1; }
+          dest="KeeNet_${GITHUB_REF_NAME#v}.apk"
+          cp "$apk" "$dest"
+          # The desktop job creates the (draft) release in parallel — wait for it
+          # to appear (tauri-action publishes it near the end of its build).
+          for i in $(seq 1 40); do
+            if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release upload "$GITHUB_REF_NAME" "$dest" --repo "$GITHUB_REPOSITORY" --clobber
+              echo "attached $dest"; exit 0
+            fi
+            echo "release not ready yet, retry $i/40"; sleep 15
+          done
+          echo "release did not appear within timeout" >&2; exit 1
 
   ios:
     runs-on: macos-latest
