@@ -1,0 +1,109 @@
+name: Release Desktop
+
+# Builds the Tauri desktop app for Linux, macOS (universal) and Windows.
+# - Push a tag `vX.Y.Z`  → builds all three and attaches bundles to a DRAFT GitHub Release.
+# - Manual dispatch      → builds all three and uploads bundles as workflow artifacts (no release).
+#
+# Code signing is OPTIONAL: every signing step is gated on its secrets being
+# present, so this pipeline is green out of the box (producing UNSIGNED bundles)
+# and starts signing automatically once you add the secrets. See docs/RELEASING.md.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write # create/attach GitHub Releases on tag builds
+
+concurrency:
+  group: release-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+            rust_targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
+          - platform: ubuntu-22.04
+            args: ''
+            rust_targets: ''
+          - platform: windows-latest
+            args: ''
+            rust_targets: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tauri's Linux webview + tray + auto-type build dependencies.
+      - name: Install Linux build deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libsoup-3.0-dev \
+            librsvg2-dev \
+            libayatana-appindicator3-dev \
+            libxdo-dev \
+            build-essential \
+            pkg-config \
+            file
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      # Builds the web app (via tauri.conf beforeBuildCommand) + the Rust shell,
+      # then bundles. On a tag it creates a draft release; otherwise it just builds.
+      - name: Build Tauri app
+        id: tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # --- macOS signing + notarization (optional) ---
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # --- Tauri updater signing (optional; only if you ship the updater) ---
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # Empty tagName on manual runs → build only, no release.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: 'KeeNet ${{ github.ref_name }}'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      # Always keep the bundles as downloadable artifacts (covers manual runs and
+      # gives per-OS archives even for tag builds). The `*/release` glob catches
+      # the macOS universal target subdir.
+      - name: Upload bundles as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: keenet-desktop-${{ matrix.platform }}
+          if-no-files-found: warn
+          path: |
+            src-tauri/target/release/bundle/**/*
+            src-tauri/target/*/release/bundle/**/*
