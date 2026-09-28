@@ -71,8 +71,6 @@ export function parseCsv(text: string): CsvRow[] {
   return rows.filter((r) => r.some((c) => c !== ''));
 }
 
-export type StdField = 'Title' | 'UserName' | 'Password' | 'URL' | 'Notes';
-
 /** Map of column index → target field name (std name or custom field name). */
 export type CsvMapping = Record<number, string>;
 

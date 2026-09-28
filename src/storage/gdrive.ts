@@ -5,7 +5,7 @@ import type {
   StorageFileStat,
   StorageDirEntry
 } from './types';
-import { createOAuthProviderAuth, statusOf } from './oauth-provider';
+import { createOAuthProviderAuth, parseTimestamp, statusOf } from './oauth-provider';
 import { StorageConflictError, StorageNotFoundError } from './errors';
 
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -45,6 +45,23 @@ interface DriveFileList {
   files?: DriveFile[];
 }
 
+/** Metadata fields requested wherever a {@link StorageFileStat} is built. */
+const STAT_FIELDS = 'id,modifiedTime,headRevisionId';
+
+function toStat(file: DriveFile): StorageFileStat {
+  return { rev: file.headRevisionId, modified: parseTimestamp(file.modifiedTime) };
+}
+
+/** Map a Drive 404 to {@link StorageNotFoundError}. */
+async function notFoundAware<T>(op: () => Promise<T>): Promise<T> {
+  try {
+    return await op();
+  } catch (e) {
+    if (statusOf(e) === 404) throw new StorageNotFoundError('gdrive');
+    throw e;
+  }
+}
+
 export const gdriveProvider: StorageProvider = {
   type: 'gdrive',
   title: 'Google Drive',
@@ -79,7 +96,7 @@ export const gdriveProvider: StorageProvider = {
     clauses.push(`(mimeType = '${FOLDER_MIME}' or name contains '.kdbx')`);
     const params = new URLSearchParams({
       q: clauses.join(' and '),
-      fields: 'files(id,name,mimeType,modifiedTime)',
+      fields: 'files(id,name,mimeType,modifiedTime,headRevisionId)',
       pageSize: '1000'
     });
     const res = await apiFetch(`${BASE}/files?${params.toString()}`);
@@ -93,21 +110,21 @@ export const gdriveProvider: StorageProvider = {
   },
 
   async load(path: string): Promise<StorageLoadResult> {
-    try {
-      const res = await apiFetch(`${BASE}/files/${encodeURIComponent(path)}?alt=media`);
-      const data = await res.arrayBuffer();
+    return notFoundAware(async () => {
+      // Read the revision BEFORE the bytes. If the file changes in between, we
+      // hold newer data with an older rev, so the next conditional save fails
+      // and re-pulls. The reverse order could pair old data with the new rev
+      // and let that save silently overwrite the concurrent change.
       const stat = await this.stat!(path);
-      return { data, stat };
-    } catch (e) {
-      if (statusOf(e) === 404) throw new StorageNotFoundError('gdrive');
-      throw e;
-    }
+      const res = await apiFetch(`${BASE}/files/${encodeURIComponent(path)}?alt=media`);
+      return { data: await res.arrayBuffer(), stat };
+    });
   },
 
   async save(
     path: string,
     data: ArrayBuffer,
-    _config?: Record<string, string>,
+    config?: Record<string, string>,
     rev?: string
   ): Promise<StorageFileStat> {
     if (path) {
@@ -119,17 +136,22 @@ export const gdriveProvider: StorageProvider = {
         const current = await this.stat!(path);
         if (current.rev && current.rev !== rev) throw new StorageConflictError('gdrive');
       }
-      // Update existing file contents by id.
-      await apiFetch(`${UPLOAD}/files/${encodeURIComponent(path)}?uploadType=media`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: data
-      });
-      return this.stat!(path);
+      // Update existing file contents by id. The upload response carries the
+      // new revision; a separate stat afterwards could pick up someone else's
+      // later write as ours.
+      const res = await apiFetch(
+        `${UPLOAD}/files/${encodeURIComponent(path)}?uploadType=media&fields=${STAT_FIELDS}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: data
+        }
+      );
+      return toStat((await res.json()) as DriveFile);
     }
 
     // Create a new file: multipart (metadata + media).
-    const name = _config?.name ?? 'database.kdbx';
+    const name = config?.name ?? 'database.kdbx';
     const boundary = `keeweb-${Math.random().toString(36).slice(2)}`;
     const metadata = JSON.stringify({ name });
     const head = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: application/octet-stream\r\n\r\n`;
@@ -143,27 +165,19 @@ export const gdriveProvider: StorageProvider = {
     bodyBytes.set(dataBytes, headBytes.length);
     bodyBytes.set(tailBytes, headBytes.length + dataBytes.length);
 
-    const res = await apiFetch(`${UPLOAD}/files?uploadType=multipart&fields=id,modifiedTime,headRevisionId`, {
+    const res = await apiFetch(`${UPLOAD}/files?uploadType=multipart&fields=${STAT_FIELDS}`, {
       method: 'POST',
       headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
       body: bodyBytes
     });
-    const created = (await res.json()) as DriveFile;
-    return {
-      rev: created.headRevisionId,
-      modified: created.modifiedTime ? Date.parse(created.modifiedTime) || undefined : undefined
-    };
+    return toStat((await res.json()) as DriveFile);
   },
 
   async stat(path: string): Promise<StorageFileStat> {
-    const res = await apiFetch(
-      `${BASE}/files/${encodeURIComponent(path)}?fields=modifiedTime,headRevisionId`
-    );
-    const file = (await res.json()) as DriveFile;
-    return {
-      rev: file.headRevisionId,
-      modified: file.modifiedTime ? Date.parse(file.modifiedTime) || undefined : undefined
-    };
+    return notFoundAware(async () => {
+      const res = await apiFetch(`${BASE}/files/${encodeURIComponent(path)}?fields=${STAT_FIELDS}`);
+      return toStat((await res.json()) as DriveFile);
+    });
   },
 
   async remove(path: string): Promise<void> {

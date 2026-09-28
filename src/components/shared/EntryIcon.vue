@@ -6,7 +6,7 @@ import type { NamedColor } from '@/types';
 
 const props = withDefaults(
   defineProps<{ icon: number; color?: string; size?: string }>(),
-  { size: '1rem' }
+  { color: undefined, size: '1rem' }
 );
 
 const cls = computed(() => iconClass(props.icon));

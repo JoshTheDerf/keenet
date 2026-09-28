@@ -62,12 +62,12 @@ function add(): void {
             @click="open(url)"
           />
         </UTooltip>
-        <UTooltip :text="t('website')">
+        <UTooltip :text="t('detCopyField', t('website'))">
           <UButton
             color="neutral"
             variant="ghost"
             icon="i-lucide-copy"
-            :aria-label="`Copy ${t('website')}`"
+            :aria-label="t('detCopyField', t('website'))"
             :disabled="!url"
             @click="copy(url, t('website'))"
           />

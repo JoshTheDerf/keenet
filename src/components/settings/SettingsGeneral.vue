@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useSettingsStore, type ThemeName } from '@/stores/settings';
 import { AVAILABLE_LOCALES, setLocale, t } from '@/i18n';
+import SettingRow from './SettingRow.vue';
 
 const settings = useSettingsStore();
 
@@ -143,13 +144,9 @@ const autoSaveIntervalItems = computed<{ label: string; value: number }[]>(() =>
         </div>
 
         <!-- Auto dark/light -->
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <div class="text-sm font-medium">{{ t('setGenAutoTheme') }}</div>
-            <div class="text-xs text-muted">{{ t('setGenAutoSwitchTheme') }}</div>
-          </div>
+        <SettingRow :label="t('setGenAutoTheme')" :help="t('setGenAutoSwitchTheme')">
           <USwitch v-model="settings.autoSwitchTheme" />
-        </div>
+        </SettingRow>
 
         <!-- Font size -->
         <div>
@@ -159,17 +156,15 @@ const autoSaveIntervalItems = computed<{ label: string; value: number }[]>(() =>
 
         <!-- Appearance toggles -->
         <div class="flex flex-col divide-y divide-default/60">
-          <div
+          <SettingRow
             v-for="item in appearanceToggles"
             :key="item.key"
-            class="flex items-start justify-between gap-4 py-3"
+            :label="item.label"
+            :help="item.help"
+            class="py-3"
           >
-            <div>
-              <div class="text-sm font-medium">{{ item.label }}</div>
-              <div class="text-xs text-muted">{{ item.help }}</div>
-            </div>
             <USwitch v-model="settings[item.key]" />
-          </div>
+          </SettingRow>
         </div>
       </div>
     </UCard>
@@ -182,17 +177,15 @@ const autoSaveIntervalItems = computed<{ label: string; value: number }[]>(() =>
 
       <div class="flex flex-col gap-5">
         <div class="flex flex-col divide-y divide-default/60">
-          <div
+          <SettingRow
             v-for="item in functionToggles"
             :key="item.key"
-            class="flex items-start justify-between gap-4 py-3"
+            :label="item.label"
+            :help="item.help"
+            class="py-3"
           >
-            <div>
-              <div class="text-sm font-medium">{{ item.label }}</div>
-              <div class="text-xs text-muted">{{ item.help }}</div>
-            </div>
             <USwitch v-model="settings[item.key]" />
-          </div>
+          </SettingRow>
         </div>
 
         <!-- Auto-save interval -->
@@ -237,17 +230,15 @@ const autoSaveIntervalItems = computed<{ label: string; value: number }[]>(() =>
       </template>
 
       <div class="flex flex-col divide-y divide-default/60">
-        <div
+        <SettingRow
           v-for="item in auditToggles"
           :key="item.key"
-          class="flex items-start justify-between gap-4 py-3"
+          :label="item.label"
+          :help="item.help"
+          class="py-3"
         >
-          <div>
-            <div class="text-sm font-medium">{{ item.label }}</div>
-            <div class="text-xs text-muted">{{ item.help }}</div>
-          </div>
           <USwitch v-model="settings[item.key]" />
-        </div>
+        </SettingRow>
       </div>
     </UCard>
   </div>

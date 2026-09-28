@@ -117,10 +117,6 @@ export function registerAutoTypeEmitter(e: AutoTypeEmitter): void {
   emitter = e;
 }
 
-export function hasNativeEmitter(): boolean {
-  return emitter !== null;
-}
-
 /**
  * Web fallback emitter: types text and dispatches key events into the currently
  * focused editable element. Only affects this page (browsers can't drive other

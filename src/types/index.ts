@@ -140,13 +140,3 @@ export type SortDir = 'asc' | 'desc';
 
 export const NAMED_COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'violet'] as const;
 export type NamedColor = (typeof NAMED_COLORS)[number];
-
-/** KeePass fg/bg hex → named color palette used for entry coloring. */
-export const COLOR_HEX: Record<NamedColor, string> = {
-  red: '#f5524c',
-  orange: '#f5a623',
-  yellow: '#f8e71c',
-  green: '#7ed321',
-  blue: '#4a90e2',
-  violet: '#9013fe'
-};

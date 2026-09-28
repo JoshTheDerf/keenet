@@ -10,6 +10,7 @@ import { StorageConflictError, StorageNotFoundError } from '@/storage/errors';
 import { auditEntries, type AuditIssue } from '@/domain/audit';
 import { checkManyPwned } from '@/domain/hibp';
 import { exportToHtml } from '@/domain/kdbx-to-html';
+import { DEFAULT_SEQUENCE } from '@/domain/auto-type';
 import type { CsvEntryData } from '@/domain/csv';
 import { useSettingsStore } from '@/stores/settings';
 import { useUiStore } from '@/stores/ui';
@@ -202,6 +203,7 @@ export const useVaultStore = defineStore('vault', () => {
             config: providerConfig(file.storage),
             template: settings.backupStoragePath,
             name: file.name,
+            filePath: file.path,
             data: data.slice(0),
             keep: settings.backupCount,
             now: new Date(now)
@@ -337,11 +339,24 @@ export const useVaultStore = defineStore('vault', () => {
         // Pull + merge the remote if it exists, remembering the revision we
         // merged against so the push can be made conditional on it.
         let baseRev: string | undefined;
+        const hadLocalChanges = file.modified;
+        const modStart = file.modCount;
         try {
           const remote = await provider.load(file.path, providerConfig(file.storage));
           await file.mergeRemote(remote.data);
           bump();
           baseRev = remote.stat.rev;
+          // Nothing of ours to push (mergeRemote itself counts as the single
+          // modification): the merged db is the remote copy, so skip the upload
+          // and the backup instead of writing a new revision every interval.
+          if (!hadLocalChanges && file.modCount === modStart + 1) {
+            file.syncRev = baseRev;
+            file.lastSyncTime = Date.now();
+            file.modified = false;
+            bump();
+            ui.notify(t('appSyncedWith', provider.title), { color: 'success', description: file.name });
+            return true;
+          }
         } catch (e) {
           if (!(e instanceof StorageNotFoundError)) throw e;
           // Remote missing / first push — create it unconditionally.
@@ -536,7 +551,7 @@ export const useVaultStore = defineStore('vault', () => {
   }
 
   function getEffectiveAutoTypeSeq(fileId: string, entryId: string): string {
-    return findFile(fileId)?.getEffectiveAutoTypeSeq(entryId) ?? '{USERNAME}{TAB}{PASSWORD}{ENTER}';
+    return findFile(fileId)?.getEffectiveAutoTypeSeq(entryId) ?? DEFAULT_SEQUENCE;
   }
 
   function setExtraUrls(fileId: string, entryId: string, urls: string[]): void {
@@ -698,6 +713,7 @@ export const useVaultStore = defineStore('vault', () => {
   }
 
   return {
+    providerConfig,
     // state
     selection,
     selectedEntryId,

@@ -12,12 +12,15 @@ import MasterPasswordField from './MasterPasswordField.vue';
 import NewFileDialog from './NewFileDialog.vue';
 import WebdavDialog from './WebdavDialog.vue';
 import StorageOpenDialog from './StorageOpenDialog.vue';
-import GeneratorQuickModal from './GeneratorQuickModal.vue';
+import GeneratorModal from '@/components/generator/GeneratorModal.vue';
 import KeeNetLogo from '@/components/shared/KeeNetLogo.vue';
+import { errorMessage } from '@/components/shared/format';
+import { useClipboard } from '@/composables/useClipboard';
 
 const vault = useVaultStore();
 const ui = useUiStore();
 const settings = useSettingsStore();
+const { copy } = useClipboard();
 
 interface PickedDb {
   name: string;
@@ -32,11 +35,13 @@ const storagePath = ref<string | undefined>(undefined);
 const password = ref('');
 const keyFileData = ref<ArrayBuffer | null>(null);
 const keyFileName = ref<string | null>(null);
+/** Key file the picked recent file was last opened with (a hint only). */
+const expectedKeyFile = ref<string | null>(null);
 
 const error = ref<string | null>(null);
 const unlocking = ref(false);
 const shake = ref(false);
-const dragging = ref(false);
+const creating = ref(false);
 
 const newOpen = ref(false);
 const webdavOpen = ref(false);
@@ -47,11 +52,21 @@ const generatorOpen = ref(false);
 const startupLoading = ref(false);
 
 const recentFiles = computed(() => settings.rememberedFiles);
+const webdavEnabled = computed(() => settings.storageEnabled.webdav !== false);
+
+/** URL to prefill the WebDAV dialog with (a failed recent file's own URL). */
+const webdavUrl = ref('');
+
+function openWebdav(url = ''): void {
+  webdavUrl.value = url;
+  webdavOpen.value = true;
+}
 
 function resetUnlock(): void {
   password.value = '';
   keyFileData.value = null;
   keyFileName.value = null;
+  expectedKeyFile.value = null;
   error.value = null;
 }
 
@@ -87,18 +102,6 @@ function recentIcon(file: RememberedFile): string {
   return getProvider(file.storage)?.icon ?? 'i-lucide-file-lock-2';
 }
 
-/** Provider config for a direct (non-browsed) load; mirrors the vault store. */
-function recentConfig(storage: string): Record<string, string> | undefined {
-  if (storage === 'webdav') {
-    return {
-      url: settings.webdav.url,
-      user: settings.webdav.user,
-      password: settings.webdav.password
-    };
-  }
-  return undefined;
-}
-
 /**
  * Reopen a recent file from the storage it came from, prompting only for the
  * master password. Local picks still need the file picker (we can't retain
@@ -110,6 +113,7 @@ async function openRecent(file: RememberedFile): Promise<void> {
   const provider = file.path ? getProvider(file.storage) : undefined;
   if (file.storage === 'file' || !file.path || !provider) {
     await openLocal();
+    if (picked.value) expectedKeyFile.value = file.keyFileName ?? null;
     return;
   }
   if (provider.oauth && provider.isAuthorized?.() === false) {
@@ -122,20 +126,29 @@ async function openRecent(file: RememberedFile): Promise<void> {
   }
   recentBusy.value = recentKey(file);
   try {
-    const res = await provider.load(file.path, recentConfig(file.storage));
+    const res = await provider.load(file.path, vault.providerConfig(file.storage));
     setPicked({ name: file.name, data: res.data }, file.storage as StorageType, file.path);
+    expectedKeyFile.value = file.keyFileName ?? null;
   } catch (e) {
-    ui.notify(t('openError'), {
-      color: 'error',
-      description: e instanceof Error ? e.message : String(e)
-    });
+    ui.notify(t('openError'), { color: 'error', description: errorMessage(e) });
     // Let the user re-enter credentials / re-pick the file.
-    if (file.storage === 'webdav') webdavOpen.value = true;
+    if (file.storage === 'webdav') openWebdav(file.path);
     else storageOpen.value = true;
   } finally {
     recentBusy.value = null;
   }
 }
+
+function forgetRecent(file: RememberedFile): void {
+  const key = recentKey(file);
+  settings.rememberedFiles = settings.rememberedFiles.filter((f) => recentKey(f) !== key);
+}
+
+const keyFileLabel = computed(() => {
+  if (keyFileName.value) return keyFileName.value;
+  if (expectedKeyFile.value) return t('openKeyFileExpected', expectedKeyFile.value);
+  return t('openKeyFile');
+});
 
 async function selectKeyFile(): Promise<void> {
   const file = await pickFileViaInput('.key,.keyx');
@@ -190,9 +203,17 @@ async function unlock(): Promise<void> {
 }
 
 async function onCreate(payload: { name: string; password: string }): Promise<void> {
-  await vault.createFile({ name: payload.name, password: payload.password });
-  newOpen.value = false;
-  ui.showScreen('app');
+  if (creating.value) return;
+  creating.value = true;
+  try {
+    await vault.createFile({ name: payload.name, password: payload.password });
+    newOpen.value = false;
+    ui.showScreen('app');
+  } catch (e) {
+    ui.notify(t('openError'), { color: 'error', description: errorMessage(e) });
+  } finally {
+    creating.value = false;
+  }
 }
 
 async function openDemo(): Promise<void> {
@@ -232,17 +253,31 @@ onMounted(async () => {
       setPicked({ name: startup.name, data: startup.data }, startup.storage as StorageType, startup.path);
     }
   } catch (e) {
-    ui.notify(t('openError'), {
-      color: 'error',
-      description: e instanceof Error ? e.message : String(e)
-    });
+    ui.notify(t('openError'), { color: 'error', description: errorMessage(e) });
   } finally {
     startupLoading.value = false;
   }
 });
 
+// dragenter/dragleave also fire for every child element crossed, so count
+// them instead of toggling a flag (which made the overlay flicker).
+const dragDepth = ref(0);
+const dragging = computed(() => dragDepth.value > 0);
+
+function onDragEnter(e: DragEvent): void {
+  if (e.dataTransfer?.types.includes('Files')) dragDepth.value++;
+}
+
+function onDragLeave(): void {
+  if (dragDepth.value > 0) dragDepth.value--;
+}
+
+function onGeneratorSelect(pw: string): void {
+  void copy(pw, t('password'));
+}
+
 async function onDrop(e: DragEvent): Promise<void> {
-  dragging.value = false;
+  dragDepth.value = 0;
   const file = e.dataTransfer?.files?.[0];
   if (!file) return;
   if (!file.name.toLowerCase().endsWith('.kdbx')) {
@@ -256,31 +291,29 @@ async function onDrop(e: DragEvent): Promise<void> {
 
 <template>
   <div
-    class="relative flex min-h-full w-full items-center justify-center overflow-y-auto p-6"
-    @dragover.prevent="dragging = true"
-    @dragenter.prevent="dragging = true"
-    @dragleave.prevent="dragging = false"
+    class="relative flex min-h-full w-full flex-col overflow-y-auto"
+    @dragenter.prevent="onDragEnter"
+    @dragover.prevent
+    @dragleave.prevent="onDragLeave"
     @drop.prevent="onDrop"
   >
-    <!-- back to the already-open vault (when adding another database) -->
-    <div v-if="vault.hasFiles" class="absolute left-4 top-4">
+    <!-- top bar: back to the open vault (when adding another database) + quick actions -->
+    <div class="flex items-center gap-1 p-2 sm:p-4">
       <UButton
+        v-if="vault.hasFiles"
         icon="i-lucide-arrow-left"
         color="neutral"
         variant="ghost"
-:label="t('openBackToVault')"
+        :label="t('openBackToVault')"
         @click="ui.showScreen('app')"
       />
-    </div>
-
-    <!-- top-right quick actions -->
-    <div class="absolute right-4 top-4 flex items-center gap-1">
-      <UTooltip :text="t('footerTitleGen')">
+      <div class="flex-1" />
+      <UTooltip :text="t('cmdGeneratePassword')">
         <UButton
-          icon="i-lucide-zap"
+          icon="i-lucide-key"
           color="neutral"
           variant="ghost"
-          :aria-label="t('footerTitleGen')"
+          :aria-label="t('cmdGeneratePassword')"
           @click="generatorOpen = true"
         />
       </UTooltip>
@@ -304,155 +337,187 @@ async function onDrop(e: DragEvent): Promise<void> {
       <p class="text-lg font-medium text-muted">{{ t('openDropHere') }}</p>
     </div>
 
-    <UCard class="w-full max-w-md" :class="{ 'kw-shake': shake }">
-      <!-- branding -->
-      <div class="flex flex-col items-center gap-2 py-2 text-center">
-        <KeeNetLogo class="size-14" />
-        <h1 class="text-2xl font-semibold tracking-tight">KeeNet</h1>
-        <p class="text-sm text-muted">{{ t('openTagline') }}</p>
-      </div>
+    <div class="flex flex-1 items-center justify-center px-4 pb-6 sm:px-6">
+      <UCard class="w-full max-w-md" :class="{ 'kw-shake': shake }">
+        <!-- branding -->
+        <div class="flex flex-col items-center gap-2 py-2 text-center">
+          <KeeNetLogo class="size-14" />
+          <h1 class="text-2xl font-semibold tracking-tight">KeeNet</h1>
+          <p class="text-sm text-muted">{{ t('openTagline') }}</p>
+        </div>
 
-      <USeparator class="my-4" />
+        <USeparator class="my-4" />
 
-      <!-- startup open (downloading a file handed to us via ?config=) -->
-      <div v-if="startupLoading" class="flex flex-col items-center gap-3 py-8 text-center">
-        <UIcon name="i-lucide-loader-circle" class="size-8 animate-spin text-primary" />
-        <p class="text-sm text-muted">{{ t('openOpeningDb') }}</p>
-      </div>
+        <!-- startup open (downloading a file handed to us via ?config=) -->
+        <div v-if="startupLoading" class="flex flex-col items-center gap-3 py-8 text-center">
+          <UIcon name="i-lucide-loader-circle" class="size-8 animate-spin text-primary" />
+          <p class="text-sm text-muted">{{ t('openOpeningDb') }}</p>
+        </div>
 
-      <!-- choose stage -->
-      <div v-else-if="!picked" class="flex flex-col gap-4">
-        <div class="grid grid-cols-2 gap-2">
-          <UButton
-            block
-            size="lg"
-            color="primary"
-            icon="i-lucide-folder-open"
-            :label="t('openOpen')"
-            @click="openLocal"
+        <!-- choose stage -->
+        <div v-else-if="!picked" class="flex flex-col gap-4">
+          <div class="grid grid-cols-2 gap-2">
+            <UButton
+              block
+              size="lg"
+              color="primary"
+              icon="i-lucide-folder-open"
+              :label="t('openOpen')"
+              @click="openLocal"
+            />
+            <UButton
+              block
+              size="lg"
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-plus"
+              :label="t('openNew')"
+              @click="newOpen = true"
+            />
+            <UButton
+              v-if="webdavEnabled"
+              block
+              size="lg"
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-server"
+              :label="t('webdav')"
+              @click="openWebdav()"
+            />
+            <UButton
+              block
+              size="lg"
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-cloud"
+              :label="t('openStorage')"
+              :class="{ 'col-span-2': !webdavEnabled }"
+              @click="storageOpen = true"
+            />
+          </div>
+
+          <UAlert
+            v-if="error"
+            color="error"
+            variant="soft"
+            icon="i-lucide-circle-alert"
+            :title="t('openError')"
+            :description="error"
+            close
+            @update:open="error = null"
           />
+
+          <!-- recent files -->
+          <div v-if="recentFiles.length" class="flex flex-col gap-1">
+            <p class="px-1 text-xs font-medium uppercase tracking-wide text-dimmed">{{ t('openRecent') }}</p>
+            <div
+              v-for="file in recentFiles"
+              :key="recentKey(file)"
+              class="group flex items-center gap-1"
+            >
+              <UButton
+                color="neutral"
+                variant="ghost"
+                class="flex-1 min-w-0 justify-start"
+                :icon="recentIcon(file)"
+                :loading="recentBusy === recentKey(file)"
+                :disabled="!!recentBusy"
+                @click="openRecent(file)"
+              >
+                <span class="truncate">{{ file.name }}</span>
+              </UButton>
+              <UTooltip :text="t('openForgetRecent')">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  icon="i-lucide-x"
+                  class="shrink-0 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
+                  :aria-label="t('openForgetRecent')"
+                  @click="forgetRecent(file)"
+                />
+              </UTooltip>
+            </div>
+          </div>
+
           <UButton
-            block
-            size="lg"
             color="neutral"
-            variant="subtle"
-            icon="i-lucide-plus"
-            :label="t('openNew')"
-            @click="newOpen = true"
-          />
-          <UButton
-            block
-            size="lg"
-            color="neutral"
-            variant="subtle"
-            icon="i-lucide-server"
-            :label="t('webdav')"
-            @click="webdavOpen = true"
-          />
-          <UButton
-            block
-            size="lg"
-            color="neutral"
-            variant="subtle"
-            icon="i-lucide-cloud"
-:label="t('openStorage')"
-            @click="storageOpen = true"
-          />
-          <UButton
-            block
-            size="lg"
-            color="neutral"
-            variant="subtle"
+            variant="link"
+            size="sm"
             icon="i-lucide-wand-sparkles"
+            class="self-center"
             :label="t('openTryDemo')"
             @click="openDemo"
           />
         </div>
 
-        <!-- recent files -->
-        <div v-if="recentFiles.length" class="flex flex-col gap-1">
-          <p class="px-1 text-xs font-medium uppercase tracking-wide text-dimmed">{{ t('openRecent') }}</p>
-          <UButton
-            v-for="file in recentFiles"
-            :key="recentKey(file)"
-            color="neutral"
-            variant="ghost"
-            class="justify-start"
-            :icon="recentIcon(file)"
-            :loading="recentBusy === recentKey(file)"
-            :disabled="!!recentBusy"
-            @click="openRecent(file)"
+        <!-- unlock stage -->
+        <div v-else class="flex flex-col gap-4">
+          <button
+            type="button"
+            class="flex max-w-full items-center gap-2 self-start text-sm text-muted transition-colors hover:text-default"
+            :aria-label="t('back')"
+            @click="clearPicked"
           >
-            <span class="truncate">{{ file.name }}</span>
-          </UButton>
-        </div>
-      </div>
+            <UIcon name="i-lucide-arrow-left" class="shrink-0" />
+            <span class="truncate font-medium text-default">{{ picked.name }}</span>
+          </button>
 
-      <!-- unlock stage -->
-      <div v-else class="flex flex-col gap-4">
-        <button
-          type="button"
-          class="flex items-center gap-2 self-start text-sm text-muted transition-colors hover:text-default"
-          @click="clearPicked"
-        >
-          <UIcon name="i-lucide-arrow-left" />
-          <span class="truncate font-medium text-default">{{ picked.name }}</span>
-        </button>
+          <UFormField :label="t('setFilePass')">
+            <MasterPasswordField v-model="password" autofocus @enter="unlock" />
+          </UFormField>
 
-        <UFormField :label="t('setFilePass')">
-          <MasterPasswordField
-            v-model="password"
-            :placeholder="t('openClickToOpen')"
-            autofocus
-            @enter="unlock"
+          <div class="flex items-center justify-between gap-2">
+            <UButton
+              color="neutral"
+              variant="link"
+              size="sm"
+              icon="i-lucide-key"
+              class="min-w-0"
+              :label="keyFileLabel"
+              @click="selectKeyFile"
+            />
+            <UButton
+              v-if="keyFileName"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              icon="i-lucide-x"
+              :aria-label="t('remove')"
+              @click="clearKeyFile"
+            />
+          </div>
+
+          <UAlert
+            v-if="error"
+            color="error"
+            variant="soft"
+            icon="i-lucide-circle-alert"
+            :title="t('openError')"
+            :description="error"
           />
-        </UFormField>
 
-        <div class="flex items-center justify-between gap-2">
           <UButton
-            color="neutral"
-            variant="link"
-            size="sm"
-            icon="i-lucide-key"
-            :label="keyFileName ?? t('openKeyFile')"
-            @click="selectKeyFile"
-          />
-          <UButton
-            v-if="keyFileName"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            icon="i-lucide-x"
-            :aria-label="t('alertClose')"
-            @click="clearKeyFile"
+            block
+            size="lg"
+            color="primary"
+            icon="i-lucide-unlock"
+            :label="t('openUnlock')"
+            :loading="unlocking"
+            @click="unlock"
           />
         </div>
+      </UCard>
+    </div>
 
-        <UAlert
-          v-if="error"
-          color="error"
-          variant="soft"
-          icon="i-lucide-circle-alert"
-:title="t('openError')"
-          :description="error"
-        />
-
-        <UButton
-          block
-          size="lg"
-          color="primary"
-          icon="i-lucide-unlock"
-:label="t('openUnlock')"
-          :loading="unlocking"
-          @click="unlock"
-        />
-      </div>
-    </UCard>
-
-    <NewFileDialog v-model:open="newOpen" @submit="onCreate" />
-    <WebdavDialog v-model:open="webdavOpen" @loaded="onWebdavLoaded" />
+    <NewFileDialog v-model:open="newOpen" :busy="creating" @submit="onCreate" />
+    <WebdavDialog v-model:open="webdavOpen" :initial-url="webdavUrl" @loaded="onWebdavLoaded" />
     <StorageOpenDialog v-model:open="storageOpen" @loaded="onStorageLoaded" />
-    <GeneratorQuickModal v-model:open="generatorOpen" />
+    <GeneratorModal
+      v-model:open="generatorOpen"
+      :select-label="t('alertCopy')"
+      @select="onGeneratorSelect"
+    />
   </div>
 </template>
 

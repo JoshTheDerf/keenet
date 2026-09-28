@@ -5,7 +5,10 @@ import { t } from '@/i18n';
 import { useVaultStore } from '@/stores/vault';
 import { ALL_COLORS } from '@/const/colors';
 import ColorDot from '@/components/shared/ColorDot.vue';
+import { colorLabel } from '@/components/shared/format';
 import MenuGroupNode from '@/components/menu/MenuGroupNode.vue';
+import ConfirmModal from '@/components/shared/ConfirmModal.vue';
+import TextPromptModal from '@/components/shared/TextPromptModal.vue';
 
 const vault = useVaultStore();
 
@@ -29,7 +32,6 @@ function isTagActive(tag: string): boolean {
 const renameOpen = ref(false);
 const deleteOpen = ref(false);
 const activeTag = ref('');
-const newTagName = ref('');
 
 function tagMenuItems(tag: string): DropdownMenuItem[] {
   return [
@@ -40,21 +42,18 @@ function tagMenuItems(tag: string): DropdownMenuItem[] {
 
 function openRename(tag: string): void {
   activeTag.value = tag;
-  newTagName.value = tag;
   renameOpen.value = true;
 }
 
-function confirmRename(): void {
+function confirmRename(to: string): void {
   const from = activeTag.value;
-  const to = newTagName.value.trim();
-  if (to && to !== from) {
+  if (to !== from) {
     // Tags aren't file-scoped in the UI, so apply across every open file.
     for (const f of vault.files) vault.renameTag(f.id, from, to);
     if (vault.selection.type === 'tag' && vault.selection.tag === from) {
       vault.setSelection({ type: 'all' });
     }
   }
-  renameOpen.value = false;
 }
 
 function openDelete(tag: string): void {
@@ -68,16 +67,10 @@ function confirmDelete(): void {
   if (vault.selection.type === 'tag' && vault.selection.tag === tag) {
     vault.setSelection({ type: 'all' });
   }
-  deleteOpen.value = false;
 }
 
 function isColorActive(color: string): boolean {
   return vault.selection.type === 'color' && vault.selection.color === color;
-}
-
-/** Localized name of a named entry color (e.g. "red" → t('colorRed')). */
-function colorLabel(color: string): string {
-  return t(`color${color[0].toUpperCase()}${color.slice(1)}`);
 }
 
 // ---- empty trash (permanent) ---------------------------------------------
@@ -95,12 +88,12 @@ function openEmptyTrash(fileId: string): void {
 
 function confirmEmptyTrash(): void {
   if (emptyTrashFileId.value) vault.emptyTrash(emptyTrashFileId.value);
-  emptyTrashOpen.value = false;
 }
 
+// One file: a plain "Empty trash"; several: one item per file, named.
 const trashItems = computed<DropdownMenuItem[]>(() =>
   vault.files.map((f) => ({
-    label: `${t('menuEmptyTrash')} — ${f.name}`,
+    label: vault.files.length > 1 ? t('menuEmptyTrashOf', f.name) : t('menuEmptyTrash'),
     icon: 'i-lucide-trash-2',
     color: 'error' as const,
     onSelect: () => openEmptyTrash(f.id)
@@ -190,7 +183,7 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
             color="neutral"
             variant="ghost"
             size="xs"
-            class="opacity-0 group-hover:opacity-100"
+            class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
             :aria-label="t('options')"
             @click.stop
           />
@@ -247,61 +240,31 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
     </div>
 
     <!-- Empty trash (permanent) -->
-    <UModal v-model:open="emptyTrashOpen" :title="t('menuEmptyTrashAlert')">
-      <template #body>
-        <p class="text-sm text-muted">
-          <span class="font-medium text-default">{{ emptyTrashFileName }}</span> —
-          {{ t('menuEmptyTrashAlertBody') }}
-        </p>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            :label="t('alertCancel')"
-            @click="emptyTrashOpen = false"
-          />
-          <UButton color="error" :label="t('menuEmptyTrash')" @click="confirmEmptyTrash" />
-        </div>
-      </template>
-    </UModal>
+    <ConfirmModal
+      v-model:open="emptyTrashOpen"
+      :title="t('menuEmptyTrashAlert')"
+      :description="t('menuEmptyTrashConfirm', emptyTrashFileName)"
+      :confirm-label="t('menuEmptyTrash')"
+      @confirm="confirmEmptyTrash"
+    />
 
     <!-- Rename tag -->
-    <UModal v-model:open="renameOpen" :title="t('menuRenameTag')">
-      <template #body>
-        <UInput
-          v-model="newTagName"
-          autofocus
-          class="w-full"
-          :placeholder="t('tagTitle')"
-          @keyup.enter="confirmRename"
-        />
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <UButton color="neutral" variant="ghost" :label="t('alertCancel')" @click="renameOpen = false" />
-          <UButton
-            color="primary"
-            :label="t('tagRename')"
-            :disabled="!newTagName.trim() || newTagName.trim() === activeTag"
-            @click="confirmRename"
-          />
-        </div>
-      </template>
-    </UModal>
+    <TextPromptModal
+      v-model:open="renameOpen"
+      :title="t('menuRenameTag')"
+      :placeholder="t('tagTitle')"
+      :initial="activeTag"
+      :confirm-label="t('tagRename')"
+      @confirm="confirmRename"
+    />
 
     <!-- Delete tag -->
-    <UModal v-model:open="deleteOpen" :title="t('tagTrashQuestion')">
-      <template #body>
-        <p class="text-sm text-muted">{{ activeTag }} — {{ t('tagTrashQuestionBody') }}</p>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <UButton color="neutral" variant="ghost" :label="t('alertCancel')" @click="deleteOpen = false" />
-          <UButton color="error" :label="t('remove')" @click="confirmDelete" />
-        </div>
-      </template>
-    </UModal>
+    <ConfirmModal
+      v-model:open="deleteOpen"
+      :title="t('tagTrashQuestion')"
+      :description="t('tagRemoveConfirm', activeTag)"
+      :confirm-label="t('remove')"
+      @confirm="confirmDelete"
+    />
   </nav>
 </template>

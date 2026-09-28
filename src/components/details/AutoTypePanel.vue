@@ -35,7 +35,9 @@ function setObfuscation(obfuscation: boolean): void {
 }
 
 function commitSequence(): void {
-  vault.setAutoType(props.entry.fileId, props.entry.id, { sequence: sequence.value.trim() });
+  const next = sequence.value.trim();
+  if (next === (props.entry.autoType.sequence ?? '')) return;
+  vault.setAutoType(props.entry.fileId, props.entry.id, { sequence: next });
 }
 
 function buildContext(): AutoTypeContext {
@@ -120,7 +122,7 @@ function copySequence(): void {
         color="info"
         variant="soft"
         icon="i-lucide-info"
-:title="t('detAutoTypeWebLimited')"
+        :title="t('detAutoTypeWebLimited')"
         :description="t('detAutoTypeWebLimitedBody')"
       />
 

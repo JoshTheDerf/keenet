@@ -10,7 +10,7 @@ import SideMenu from '@/components/menu/SideMenu.vue';
 import SearchBar from '@/components/list/SearchBar.vue';
 import EntryList from '@/components/list/EntryList.vue';
 import EntryDetails from '@/components/details/EntryDetails.vue';
-import GeneratorPanel from '@/components/generator/GeneratorPanel.vue';
+import GeneratorModal from '@/components/generator/GeneratorModal.vue';
 import CommandPalette from '@/components/layout/CommandPalette.vue';
 import { useClipboard } from '@/composables/useClipboard';
 import { useAutoSave } from '@/composables/useAutoSave';
@@ -51,8 +51,7 @@ watch(
 );
 
 function onGeneratorSelect(pw: string): void {
-  copy(pw, t('password'));
-  vault.generatorOpen = false;
+  void copy(pw, t('password'));
 }
 
 function backToList(): void {
@@ -136,11 +135,11 @@ onUnmounted(() => unsubAutoType?.());
     <!-- Ctrl/Cmd+K command palette -->
     <CommandPalette />
 
-    <!-- Standalone generator -->
-    <UModal v-model:open="vault.generatorOpen" :title="t('cmdGeneratePassword')">
-      <template #body>
-        <GeneratorPanel @select="onGeneratorSelect" @close="vault.generatorOpen = false" />
-      </template>
-    </UModal>
+    <!-- Standalone generator (the chosen password goes to the clipboard) -->
+    <GeneratorModal
+      v-model:open="vault.generatorOpen"
+      :select-label="t('alertCopy')"
+      @select="onGeneratorSelect"
+    />
   </div>
 </template>

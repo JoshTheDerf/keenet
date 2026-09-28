@@ -85,7 +85,7 @@ async function onFilesPicked(event: Event): Promise<void> {
           icon="i-lucide-plus"
           @click="fileInput?.click()"
         >
-          {{ t('detAttachments') }}
+          {{ t('detAddAttachment') }}
         </UButton>
         <input ref="fileInput" type="file" multiple class="hidden" @change="onFilesPicked" />
       </div>

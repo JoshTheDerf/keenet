@@ -3,7 +3,10 @@ import { computed } from 'vue';
 import { COLOR_DISPLAY } from '@/const/colors';
 import type { NamedColor } from '@/types';
 
-const props = withDefaults(defineProps<{ color?: string; size?: string }>(), { size: '0.75rem' });
+const props = withDefaults(defineProps<{ color?: string; size?: string }>(), {
+  color: undefined,
+  size: '0.75rem'
+});
 
 const bg = computed(() =>
   props.color && props.color in COLOR_DISPLAY ? COLOR_DISPLAY[props.color as NamedColor] : 'transparent'

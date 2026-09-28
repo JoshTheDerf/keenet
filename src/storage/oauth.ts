@@ -48,8 +48,6 @@ const VERIFIER_KEY = 'keeweb-oauth-pending-verifier';
 /** Refresh a little early to avoid using a token that expires mid-request. */
 const EXPIRY_SKEW_MS = 60_000;
 
-const OAUTH_PROVIDER_IDS: OAuthProviderId[] = ['dropbox', 'gdrive', 'onedrive'];
-
 // ---------------------------------------------------------------------------
 // base64url helpers
 // ---------------------------------------------------------------------------
@@ -225,7 +223,7 @@ function openPopupAndAwaitCode(authUrl: string, expectedState: string): Promise<
 // Token sets go through the pluggable secret store: OS-keychain-backed on
 // desktop (keyring) and mobile (Keystore/Keychain), prefixed localStorage
 // on the web. The store's in-memory cache keeps `getToken`/`isTokenValid`
-// synchronous — main.ts awaits `hydrateOAuthTokens()`/`secretStore.preload()`
+// synchronous: main.ts awaits `secretStore.preload()`
 // before mount, so the cache is warm before any provider is used.
 // ---------------------------------------------------------------------------
 
@@ -264,15 +262,19 @@ export function clearToken(provider: OAuthProviderId): Promise<void> {
   return secretStore.remove(oauthTokenKey(provider));
 }
 
-/** Warm the token cache from the secret backend (awaited at startup). */
-export function hydrateOAuthTokens(): Promise<void> {
-  return secretStore.preload(OAUTH_PROVIDER_IDS.map(oauthTokenKey));
+function isFresh(token: StoredToken): boolean {
+  return Date.now() < token.expiry - EXPIRY_SKEW_MS;
 }
 
-/** True when a non-expired access token is currently held. */
+/**
+ * True when a usable session is held: a non-expired access token, or an
+ * expired one that can still be refreshed silently. Checking only expiry would
+ * report "signed out" an hour after sign-in and force a needless interactive
+ * (popup) re-authorization on the next background sync.
+ */
 export function isTokenValid(provider: OAuthProviderId): boolean {
   const token = getToken(provider);
-  return !!token && Date.now() < token.expiry - EXPIRY_SKEW_MS;
+  return !!token && (isFresh(token) || !!token.refresh_token);
 }
 
 function toStoredToken(res: TokenResponse): StoredToken {
@@ -287,7 +289,10 @@ function toStoredToken(res: TokenResponse): StoredToken {
 async function parseTokenResponse(res: Response): Promise<StoredToken> {
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`OAuth token request failed: ${res.status} ${res.statusText} ${text}`.trim());
+    throw Object.assign(
+      new Error(`OAuth token request failed: ${res.status} ${res.statusText} ${text}`.trim()),
+      { status: res.status }
+    );
   }
   const json = (await res.json()) as TokenResponse;
   if (!json.access_token) {
@@ -402,6 +407,9 @@ export interface TokenEndpointConfig {
   clientId: string;
 }
 
+/** In-flight refreshes, so concurrent requests share one token exchange. */
+const refreshesInFlight = new Map<OAuthProviderId, Promise<string>>();
+
 /**
  * Returns a currently-valid access token for `provider`, auto-refreshing when
  * expired. Throws a clear Error when the user is not signed in or the session
@@ -415,29 +423,55 @@ export async function getValidAccessToken(
   if (!token) {
     throw new Error('Not signed in. Please sign in first.');
   }
-  if (Date.now() < token.expiry - EXPIRY_SKEW_MS) {
+  if (isFresh(token)) {
     return token.access_token;
   }
   if (!token.refresh_token) {
     await clearToken(provider);
     throw new Error('Session expired, please sign in again.');
   }
+  let pending = refreshesInFlight.get(provider);
+  if (!pending) {
+    pending = refreshAndStore(provider, config, token, token.refresh_token);
+    refreshesInFlight.set(provider, pending);
+    const clear = (): void => {
+      refreshesInFlight.delete(provider);
+    };
+    pending.then(clear, clear);
+  }
+  return pending;
+}
+
+async function refreshAndStore(
+  provider: OAuthProviderId,
+  config: TokenEndpointConfig,
+  token: StoredToken,
+  refresh: string
+): Promise<string> {
+  let refreshed: StoredToken;
   try {
-    const refreshed = await refreshToken({
+    refreshed = await refreshToken({
       tokenUrl: config.tokenUrl,
       clientId: config.clientId,
-      refreshToken: token.refresh_token
+      refreshToken: refresh
     });
-    const merged: StoredToken = {
-      access_token: refreshed.access_token,
-      // Refresh responses often omit a new refresh token — keep the old one.
-      refresh_token: refreshed.refresh_token ?? token.refresh_token,
-      expiry: refreshed.expiry
-    };
-    await setToken(provider, merged);
-    return merged.access_token;
-  } catch {
-    await clearToken(provider);
-    throw new Error('Session expired, please sign in again.');
+  } catch (e) {
+    // Only a rejection by the token endpoint (400 invalid_grant, 401) means the
+    // session is dead. A network error or 5xx is transient: keep the refresh
+    // token so the next attempt can succeed without a fresh sign-in.
+    const status = (e as { status?: number }).status;
+    if (status === 400 || status === 401) {
+      await clearToken(provider);
+      throw new Error('Session expired, please sign in again.', { cause: e });
+    }
+    throw e;
   }
+  const merged: StoredToken = {
+    access_token: refreshed.access_token,
+    // Refresh responses often omit a new refresh token — keep the old one.
+    refresh_token: refreshed.refresh_token ?? token.refresh_token,
+    expiry: refreshed.expiry
+  };
+  await setToken(provider, merged);
+  return merged.access_token;
 }

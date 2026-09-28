@@ -24,10 +24,12 @@ import type {
   AttachmentVm,
   NewFileParams,
   OpenParams,
-  StorageType
+  StorageType,
+  NamedColor
 } from '@/types';
-import { nearestNamedColor } from '@/const/colors';
+import { COLOR_BG, nearestNamedColor } from '@/const/colors';
 import { hasFieldReferences, resolveFieldReferences, type RefEntry } from '@/domain/references';
+import { DEFAULT_SEQUENCE } from '@/domain/auto-type';
 
 export const BUILT_IN_FIELDS = new Set([
   'Title',
@@ -225,15 +227,30 @@ export class KdbxFile {
     this.modCount++;
   }
 
-  private isInTrash(entry: KdbxEntry): boolean {
+  /** Whether `group` is the recycle bin or nested inside it. */
+  private isTrashGroup(group: KdbxGroup | undefined): boolean {
     const trashId = this.recycleBinUuid;
     if (!trashId) return false;
-    let g: KdbxGroup | undefined = entry.parentGroup;
-    while (g) {
+    for (let g = group; g; g = g.parentGroup) {
       if (uuidStr(g.uuid) === trashId) return true;
-      g = g.parentGroup;
     }
     return false;
+  }
+
+  private isInTrash(entry: KdbxEntry): boolean {
+    return this.isTrashGroup(entry.parentGroup);
+  }
+
+  /**
+   * Delete an entry or group: into the recycle bin when it is enabled and the
+   * object isn't already there, otherwise permanently. kdbxweb's `remove`
+   * would just move an already-trashed object back into the bin, so permanent
+   * deletes go through `move(obj, null)`, which also records the
+   * deletedObjects tombstones a later merge needs to keep it deleted.
+   */
+  private removeObject(obj: KdbxEntry | KdbxGroup, alreadyInTrash: boolean): void {
+    if (alreadyInTrash) this.db.move(obj, null);
+    else this.db.remove(obj);
   }
 
   // ---- mutations -----------------------------------------------------------
@@ -331,15 +348,7 @@ export class KdbxFile {
     if (!entry) return;
     entry.pushHistory();
     if (color) {
-      const bg: Record<string, string> = {
-        yellow: 'ffff88',
-        green: '88ff88',
-        red: 'ff8888',
-        orange: 'ffcc88',
-        blue: '8888ff',
-        violet: 'ff88ff'
-      };
-      entry.bgColor = '#' + (bg[color] ?? 'ffffff');
+      entry.bgColor = '#' + (COLOR_BG[color as NamedColor] ?? 'ffffff');
     } else {
       entry.bgColor = undefined;
     }
@@ -415,8 +424,7 @@ export class KdbxFile {
   deleteEntry(id: string): void {
     const entry = this.getEntry(id);
     if (!entry) return;
-    this.db.remove(entry);
-    this.entryIndex.delete(id);
+    this.removeObject(entry, this.isInTrash(entry));
     this.reindex();
     this.markModified();
   }
@@ -424,7 +432,9 @@ export class KdbxFile {
   deleteGroup(id: string): void {
     const group = this.getGroup(id);
     if (!group || uuidStr(group.uuid) === uuidStr(this.db.getDefaultGroup().uuid)) return;
-    this.db.remove(group);
+    // Deleting the bin itself would move it into itself; use emptyTrash.
+    if (uuidStr(group.uuid) === this.recycleBinUuid) return;
+    this.removeObject(group, this.isTrashGroup(group.parentGroup));
     this.reindex();
     this.markModified();
   }
@@ -444,8 +454,9 @@ export class KdbxFile {
     if (!trashId) return;
     const trash = this.getGroup(trashId);
     if (!trash) return;
-    trash.groups = [];
-    trash.entries = [];
+    // Permanent delete with tombstones; clearing the arrays directly would let
+    // the next sync merge the entries back in from the remote copy.
+    for (const obj of [...trash.groups, ...trash.entries]) this.db.move(obj, null);
     this.reindex();
     this.markModified();
   }
@@ -641,7 +652,7 @@ export class KdbxFile {
       if (g.defaultAutoTypeSeq) return g.defaultAutoTypeSeq;
       g = g.parentGroup;
     }
-    return '{USERNAME}{TAB}{PASSWORD}{ENTER}';
+    return DEFAULT_SEQUENCE;
   }
 
   // ---- extra URLs ----------------------------------------------------------

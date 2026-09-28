@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { ALL_COLORS } from '@/const/colors';
 import { t } from '@/i18n';
 import ColorDot from '@/components/shared/ColorDot.vue';
+import { colorLabel } from '@/components/shared/format';
 
 const props = defineProps<{ color?: string }>();
 const emit = defineEmits<{ select: [color: string | undefined] }>();
@@ -14,10 +15,6 @@ function choose(color: string | undefined): void {
   open.value = false;
 }
 
-/** Localized name of a named entry color (e.g. "red" → t('colorRed')). */
-function colorLabel(color: string): string {
-  return t(`color${color[0].toUpperCase()}${color.slice(1)}`);
-}
 </script>
 
 <template>

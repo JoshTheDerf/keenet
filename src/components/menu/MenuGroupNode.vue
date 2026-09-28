@@ -6,6 +6,7 @@ import type { GroupVm } from '@/types';
 import { useVaultStore } from '@/stores/vault';
 import EntryIcon from '@/components/shared/EntryIcon.vue';
 import TextPromptModal from '@/components/shared/TextPromptModal.vue';
+import ConfirmModal from '@/components/shared/ConfirmModal.vue';
 // Recursive self-reference: an SFC may import itself.
 import MenuGroupNode from '@/components/menu/MenuGroupNode.vue';
 
@@ -70,7 +71,6 @@ const deleteOpen = ref(false);
 
 function confirmDelete(): void {
   vault.deleteGroup(props.fileId, props.group.id);
-  deleteOpen.value = false;
 }
 
 const menuItems = computed<DropdownMenuItem[]>(() => [
@@ -107,7 +107,7 @@ const menuItems = computed<DropdownMenuItem[]>(() => [
     >
       <button
         type="button"
-        class="shrink-0 flex items-center justify-center size-4 rounded hover:bg-accented/50"
+        class="shrink-0 flex items-center justify-center size-4 max-md:size-8 rounded hover:bg-accented/50"
         :class="{ invisible: !childGroups.length }"
         :aria-label="t('menuToggleGroup')"
         @click="toggle"
@@ -135,7 +135,7 @@ const menuItems = computed<DropdownMenuItem[]>(() => [
           color="neutral"
           variant="ghost"
           size="xs"
-          class="opacity-0 group-hover:opacity-100"
+          class="hidden pointer-fine:inline-flex pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
           :aria-label="t('menuNewSubgroup')"
           @click.stop="addSubgroup"
         />
@@ -147,7 +147,7 @@ const menuItems = computed<DropdownMenuItem[]>(() => [
           color="neutral"
           variant="ghost"
           size="xs"
-          class="opacity-0 group-hover:opacity-100"
+          class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
           :aria-label="t('options')"
           @click.stop
         />
@@ -175,21 +175,12 @@ const menuItems = computed<DropdownMenuItem[]>(() => [
     />
 
     <!-- Confirm deleting the group (removes contained entries too) -->
-    <UModal v-model:open="deleteOpen" :title="t('grpTrash')">
-      <template #body>
-        <p class="text-sm text-muted">{{ t('grpDeleteAlertBody', group.name) }}</p>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            :label="t('alertCancel')"
-            @click="deleteOpen = false"
-          />
-          <UButton color="error" :label="t('detDelEntry')" @click="confirmDelete" />
-        </div>
-      </template>
-    </UModal>
+    <ConfirmModal
+      v-model:open="deleteOpen"
+      :title="t('grpTrash')"
+      :description="t('grpDeleteAlertBody', group.name)"
+      :confirm-label="t('detDelEntry')"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>

@@ -7,6 +7,7 @@
 import { computed } from 'vue';
 import type { CommandPaletteGroup, CommandPaletteItem } from '@nuxt/ui';
 import { t } from '@/i18n';
+import { hostOf } from '@/components/shared/format';
 import { useVaultStore } from '@/stores/vault';
 import { useUiStore } from '@/stores/ui';
 import { useOverlays } from '@/composables/useOverlays';
@@ -40,19 +41,6 @@ function goToEntry(entry: EntryVm): void {
   close();
   vault.setSelection({ type: 'group', fileId: entry.fileId, groupId: entry.groupId });
   vault.selectEntry(entry.id);
-}
-
-function hostOf(url: string): string {
-  if (!url) return '';
-  try {
-    return new URL(url).host;
-  } catch {
-    try {
-      return new URL(`https://${url}`).host;
-    } catch {
-      return url;
-    }
-  }
 }
 
 const actionItems = computed<CommandPaletteItem[]>(() => {

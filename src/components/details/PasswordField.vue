@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/stores/settings';
 import { generatePassword, resolveDefaultPreset } from '@/domain/generator';
 import { hasFieldReferences } from '@/domain/references';
 import PasswordStrengthBar from '@/components/shared/PasswordStrengthBar.vue';
+import GeneratorModal from '@/components/generator/GeneratorModal.vue';
 
 const props = defineProps<{
   modelValue: string;
@@ -23,6 +24,7 @@ const settings = useSettingsStore();
 
 const local = ref(props.modelValue);
 const revealed = ref(false);
+const generatorOpen = ref(false);
 
 watch(
   () => props.modelValue,
@@ -44,11 +46,17 @@ function onCopy(): void {
   void copy(resolved.value, t('password'), { sensitive: true });
 }
 
-function generate(): void {
-  local.value = generatePassword(resolveDefaultPreset(settings.generatorPresets));
+function setGenerated(pw: string): void {
+  local.value = pw;
   revealed.value = true;
   commit();
 }
+
+function generate(): void {
+  setGenerated(generatePassword(resolveDefaultPreset(settings.generatorPresets)));
+}
+
+const copyLabel = computed(() => t('detCopyField', t('password')));
 </script>
 
 <template>
@@ -66,7 +74,7 @@ function generate(): void {
       />
 
       <UTooltip v-if="hasRef" :text="resolved">
-        <UBadge color="neutral" variant="soft" icon="i-lucide-link" size="sm">ref</UBadge>
+        <UBadge color="neutral" variant="soft" icon="i-lucide-link" size="sm">{{ t('detRefBadge') }}</UBadge>
       </UTooltip>
 
       <UTooltip :text="revealed ? t('genHidePass') : t('genShowPass')">
@@ -79,32 +87,32 @@ function generate(): void {
         />
       </UTooltip>
 
-      <UTooltip :text="t('footerTitleGen')">
+      <UTooltip :text="t('genNewPass')">
         <UButton
           color="neutral"
           variant="ghost"
           icon="i-lucide-dice-5"
-          :aria-label="t('footerTitleGen')"
+          :aria-label="t('genNewPass')"
           @click="generate"
         />
       </UTooltip>
 
-      <UTooltip :text="t('footerTitleGen')">
+      <UTooltip :text="t('detGeneratorOptions')">
         <UButton
           color="neutral"
           variant="ghost"
           icon="i-lucide-sliders-horizontal"
-          :aria-label="t('footerTitleGen')"
-          @click="vault.generatorOpen = true"
+          :aria-label="t('detGeneratorOptions')"
+          @click="generatorOpen = true"
         />
       </UTooltip>
 
-      <UTooltip :text="`Copy ${t('password')}`">
+      <UTooltip :text="copyLabel">
         <UButton
           color="neutral"
           variant="ghost"
           icon="i-lucide-copy"
-          :aria-label="`Copy ${t('password')}`"
+          :aria-label="copyLabel"
           :disabled="!modelValue"
           @click="onCopy"
         />
@@ -112,5 +120,8 @@ function generate(): void {
     </div>
 
     <PasswordStrengthBar :password="local" :user-inputs="userInputs" class="mt-2" />
+
+    <!-- Full generator; "Use" puts the result into this field -->
+    <GeneratorModal v-model:open="generatorOpen" @select="setGenerated" />
   </UFormField>
 </template>

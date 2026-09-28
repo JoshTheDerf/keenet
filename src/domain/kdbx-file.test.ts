@@ -64,6 +64,37 @@ describe('KdbxFile lifecycle', () => {
     expect(file.getAllEntries(false).some((e) => e.title === 'Doomed')).toBe(false);
   });
 
+  it('deleting an entry that is already in the trash removes it permanently', async () => {
+    const file = await KdbxFile.create({ name: 'Trash2', password: 'p' });
+    const id = file.createEntry(file.getGroupTree().id).uuid.id;
+    file.deleteEntry(id);
+    expect(file.getEntry(id)).toBeDefined();
+    file.deleteEntry(id);
+    expect(file.getEntry(id)).toBeUndefined();
+    expect(file.db.deletedObjects.some((d) => d.uuid?.id === id)).toBe(true);
+  });
+
+  it('emptied trash stays empty after merging an older remote copy', async () => {
+    const file = await KdbxFile.create({ name: 'Trash3', password: 'p' });
+    const id = file.createEntry(file.getGroupTree().id).uuid.id;
+    file.deleteEntry(id); // into the bin
+    const before = await file.save();
+
+    file.emptyTrash();
+    expect(file.getEntry(id)).toBeUndefined();
+    // Without tombstones the merge would resurrect the entry from `before`.
+    await file.mergeRemote(before);
+    expect(file.getEntry(id)).toBeUndefined();
+  });
+
+  it('refuses to delete the recycle bin group itself', async () => {
+    const file = await KdbxFile.create({ name: 'Trash4', password: 'p' });
+    const binId = file.recycleBinUuid!;
+    file.deleteGroup(binId);
+    expect(file.getGroup(binId)).toBeDefined();
+    expect(file.getGroupTree().children.some((g) => g.isRecycleBin)).toBe(true);
+  });
+
   it('creates nested groups and counts entries', async () => {
     const file = await KdbxFile.create({ name: 'Groups', password: 'p' });
     const rootId = file.getGroupTree().id;

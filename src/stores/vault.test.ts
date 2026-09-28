@@ -5,6 +5,10 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { initKdbxweb } from '@/domain/kdbx-init';
 import { useVaultStore } from '@/stores/vault';
+import { KdbxFile } from '@/domain/kdbx-file';
+import { registerProvider } from '@/storage';
+import { StorageConflictError } from '@/storage/errors';
+import type { StorageProvider } from '@/storage/types';
 
 interface HandleLog {
   writes: number;
@@ -179,5 +183,78 @@ describe('vault store pwned results', () => {
 
     expect(vault.pwnedResults.has(e1)).toBe(false);
     expect(vault.pwnedResults.get(e2)).toBe(5);
+  });
+});
+
+/** In-memory remote with integer revisions and conditional writes. */
+const remote = { data: new ArrayBuffer(0), rev: 0, saves: 0, raceOnce: null as null | (() => Promise<void>) };
+const memoryProvider: StorageProvider = {
+  type: 'memory',
+  title: 'Memory',
+  icon: '',
+  enabled: true,
+  needsConfig: false,
+  async load() {
+    return { data: remote.data.slice(0), stat: { rev: String(remote.rev) } };
+  },
+  async save(_path, data, _config, rev) {
+    if (remote.raceOnce) {
+      const race = remote.raceOnce;
+      remote.raceOnce = null;
+      await race();
+    }
+    if (rev !== undefined && rev !== String(remote.rev)) throw new StorageConflictError('memory');
+    remote.data = data.slice(0);
+    remote.rev++;
+    remote.saves++;
+    return { rev: String(remote.rev) };
+  }
+};
+registerProvider(memoryProvider);
+
+describe('vault store syncFile', () => {
+  async function openRemote(): Promise<{ vault: ReturnType<typeof useVaultStore>; file: KdbxFile }> {
+    const seed = await KdbxFile.create({ name: 'R', password: 'p' });
+    remote.data = await seed.save();
+    remote.rev = 1;
+    remote.saves = 0;
+    const vault = useVaultStore();
+    const file = await vault.openFile({
+      name: 'R',
+      password: 'p',
+      fileData: remote.data.slice(0),
+      storage: 'memory',
+      path: 'r.kdbx'
+    });
+    return { vault, file };
+  }
+
+  it('pulls without pushing when there are no local changes', async () => {
+    const { vault, file } = await openRemote();
+    await expect(vault.syncFile(file.id)).resolves.toBe(true);
+    expect(remote.saves).toBe(0);
+    expect(file.modified).toBe(false);
+    expect(file.syncRev).toBe('1');
+  });
+
+  it('pushes local changes conditionally and re-merges after a conflict', async () => {
+    const { vault, file } = await openRemote();
+    const entryId = file.getAllEntries(true)[0].id;
+    vault.updateField(file.id, entryId, 'Title', 'local edit');
+
+    // Another device writes between our pull and push.
+    const other = await KdbxFile.open({ name: 'R', password: 'p', fileData: remote.data.slice(0) });
+    other.createEntry().fields.set('Title', 'remote entry');
+    remote.raceOnce = async () => {
+      remote.data = await other.save();
+      remote.rev++;
+    };
+
+    await expect(vault.syncFile(file.id)).resolves.toBe(true);
+    expect(file.modified).toBe(false);
+    const titles = file.getAllEntries(true).map((e) => e.title);
+    expect(titles).toContain('local edit');
+    expect(titles).toContain('remote entry');
+    expect(remote.saves).toBe(1);
   });
 });

@@ -14,6 +14,7 @@ import type {
   StorageDirEntry
 } from './types';
 import { StorageConflictError, StorageNotFoundError } from './errors';
+import { idbKeyValueStore } from './cache';
 
 interface FsDirWindow {
   showDirectoryPicker?: (opts?: { mode?: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
@@ -25,52 +26,11 @@ interface HandleWithPermissions {
   requestPermission?: (d: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>;
 }
 
-const HANDLE_DB = 'keeweb-fs';
-const HANDLE_STORE = 'handles';
 const HANDLE_KEY = 'root-dir';
+const handles = idbKeyValueStore('keeweb-fs', 'handles');
 
 export function supportsFileSystemAccess(): boolean {
   return typeof (window as unknown as FsDirWindow).showDirectoryPicker === 'function';
-}
-
-function openHandleDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(HANDLE_DB, 1);
-    req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains(HANDLE_STORE)) {
-        req.result.createObjectStore(HANDLE_STORE);
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function idbGet<T>(key: string): Promise<T | undefined> {
-  const db = await openHandleDb();
-  return new Promise<T | undefined>((resolve, reject) => {
-    const req = db.transaction(HANDLE_STORE, 'readonly').objectStore(HANDLE_STORE).get(key);
-    req.onsuccess = () => resolve(req.result as T | undefined);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function idbSet(key: string, value: unknown): Promise<void> {
-  const db = await openHandleDb();
-  await new Promise<void>((resolve, reject) => {
-    const req = db.transaction(HANDLE_STORE, 'readwrite').objectStore(HANDLE_STORE).put(value, key);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function idbDel(key: string): Promise<void> {
-  const db = await openHandleDb();
-  await new Promise<void>((resolve, reject) => {
-    const req = db.transaction(HANDLE_STORE, 'readwrite').objectStore(HANDLE_STORE).delete(key);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
 }
 
 let cachedDir: FileSystemDirectoryHandle | null = null;
@@ -88,7 +48,7 @@ async function ensurePermission(
 async function getDir(interactive: boolean, mode: 'read' | 'readwrite' = 'readwrite'): Promise<FileSystemDirectoryHandle | null> {
   if (cachedDir && (await ensurePermission(cachedDir, mode))) return cachedDir;
 
-  const stored = await idbGet<FileSystemDirectoryHandle>(HANDLE_KEY);
+  const stored = await handles.get<FileSystemDirectoryHandle>(HANDLE_KEY);
   if (stored) {
     if (await ensurePermission(stored, mode)) {
       cachedDir = stored;
@@ -102,7 +62,7 @@ async function getDir(interactive: boolean, mode: 'read' | 'readwrite' = 'readwr
   const dir = await w.showDirectoryPicker({ mode: 'readwrite' });
   if (!(await ensurePermission(dir, mode))) throw new Error('Permission denied for the selected folder');
   cachedDir = dir;
-  await idbSet(HANDLE_KEY, dir);
+  await handles.set(HANDLE_KEY, dir);
   return dir;
 }
 
@@ -113,7 +73,7 @@ export async function chooseFolder(): Promise<boolean> {
 }
 
 export async function hasFolder(): Promise<boolean> {
-  const stored = await idbGet<FileSystemDirectoryHandle>(HANDLE_KEY);
+  const stored = await handles.get<FileSystemDirectoryHandle>(HANDLE_KEY);
   return !!stored;
 }
 
@@ -155,17 +115,23 @@ export const fileSystemProvider: StorageProvider = {
   enabled: true,
   needsConfig: false,
 
-  async list(): Promise<StorageDirEntry[]> {
-    const dir = await getDir(true, 'read');
-    if (!dir) return [];
+  async list(dir = ''): Promise<StorageDirEntry[]> {
+    const root = await getDir(true, 'read');
+    if (!root) return [];
+    // Walk down to `dir` (a root-relative path from a previous listing).
+    let folder = root;
+    for (const part of dir.split('/').filter(Boolean)) {
+      folder = await folder.getDirectoryHandle(part);
+    }
+    const prefix = dir.replace(/\/+$/, '');
     const entries: StorageDirEntry[] = [];
-    // `values()` is an async iterator over directory contents.
-    for await (const [name, handle] of (dir as unknown as {
+    // `entries()` is an async iterator over directory contents.
+    for await (const [name, handle] of (folder as unknown as {
       entries: () => AsyncIterable<[string, FileSystemHandle]>;
     }).entries()) {
       const isDir = handle.kind === 'directory';
       if (!isDir && !name.toLowerCase().endsWith('.kdbx')) continue;
-      entries.push({ name, path: name, dir: isDir });
+      entries.push({ name, path: prefix ? `${prefix}/${name}` : name, dir: isDir });
     }
     return entries.sort((a, b) => Number(b.dir) - Number(a.dir) || a.name.localeCompare(b.name));
   },
@@ -229,13 +195,17 @@ export const fileSystemProvider: StorageProvider = {
   async stat(path: string): Promise<StorageFileStat> {
     const dir = await getDir(false, 'read');
     if (!dir) throw new Error('No folder selected');
-    const handle = await fileHandle(dir, path);
-    const file = await handle.getFile();
-    return { rev: String(file.lastModified), modified: file.lastModified };
+    try {
+      const file = await (await fileHandle(dir, path)).getFile();
+      return { rev: String(file.lastModified), modified: file.lastModified };
+    } catch (e) {
+      if (isNotFound(e)) throw new StorageNotFoundError('fsaccess');
+      throw e;
+    }
   },
 
   logout(): void {
     cachedDir = null;
-    void idbDel(HANDLE_KEY);
+    void handles.remove(HANDLE_KEY);
   }
 };

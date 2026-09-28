@@ -14,7 +14,7 @@ function esc(s: string): string {
 
 function entryRow(entry: EntryVm): string {
   const custom = entry.fields
-    .map((f) => `<div><b>${esc(f.name)}:</b> ${esc(f.protected ? f.value : f.value)}</div>`)
+    .map((f) => `<div><b>${esc(f.name)}:</b> ${esc(f.value)}</div>`)
     .join('');
   const tags = entry.tags.length ? `<div class="tags">${entry.tags.map(esc).join(', ')}</div>` : '';
   // Only linkify http(s) URLs; anything else (javascript:, data:, …) is

@@ -2,6 +2,7 @@
 import { ref, watch, reactive } from 'vue';
 import { t } from '@/i18n';
 import { useVaultStore } from '@/stores/vault';
+import { useUiStore } from '@/stores/ui';
 import { useClipboard } from '@/composables/useClipboard';
 import type { FieldVm } from '@/types';
 import TextPromptModal from '@/components/shared/TextPromptModal.vue';
@@ -9,6 +10,7 @@ import TextPromptModal from '@/components/shared/TextPromptModal.vue';
 const props = defineProps<{ fileId: string; entryId: string; fields: FieldVm[] }>();
 
 const vault = useVaultStore();
+const ui = useUiStore();
 const { copy } = useClipboard();
 
 const local = ref<FieldVm[]>(props.fields.map((f) => ({ ...f })));
@@ -57,7 +59,10 @@ function remove(index: number): void {
 const addOpen = ref(false);
 
 function confirmAddField(name: string): void {
-  if (props.fields.some((f) => f.name === name)) return;
+  if (props.fields.some((f) => f.name === name)) {
+    ui.notify(t('detFieldExists'), { color: 'warning', description: name });
+    return;
+  }
   vault.updateField(props.fileId, props.entryId, name, '');
 }
 </script>
@@ -65,17 +70,16 @@ function confirmAddField(name: string): void {
 <template>
   <div class="flex flex-col gap-3">
     <div v-for="(field, index) in local" :key="index" class="flex flex-col gap-1">
-      <div class="flex items-center gap-1.5">
-        <UInput
-          v-model="field.name"
-          size="sm"
-          class="w-40"
-          :placeholder="t('name')"
-          @blur="commitName(index)"
-          @keydown.enter="commitName(index)"
-        />
-        <span class="text-xs text-muted">field</span>
-      </div>
+      <UInput
+        v-model="field.name"
+        size="sm"
+        variant="ghost"
+        class="w-full max-w-60 font-medium"
+        :placeholder="t('name')"
+        :aria-label="t('name')"
+        @blur="commitName(index)"
+        @keydown.enter="commitName(index)"
+      />
       <div class="flex items-center gap-1.5">
         <UInput
           v-model="field.value"
@@ -84,13 +88,14 @@ function confirmAddField(name: string): void {
           autocomplete="off"
           spellcheck="false"
           @blur="commitValue(index)"
+          @keydown.enter="commitValue(index)"
         />
         <UTooltip v-if="field.protected" :text="revealed[field.name] ? t('detHideField') : t('detRevealField')">
           <UButton
             color="neutral"
             variant="ghost"
             :icon="revealed[field.name] ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-            :aria-label="t('detRevealField')"
+            :aria-label="revealed[field.name] ? t('detHideField') : t('detRevealField')"
             @click="revealed[field.name] = !revealed[field.name]"
           />
         </UTooltip>
@@ -103,12 +108,13 @@ function confirmAddField(name: string): void {
             @click="toggleProtected(index)"
           />
         </UTooltip>
-        <UTooltip :text="t('alertCopy')">
+        <UTooltip :text="t('detCopyField', field.name)">
           <UButton
             color="neutral"
             variant="ghost"
             icon="i-lucide-copy"
-            :aria-label="t('alertCopy')"
+            :aria-label="t('detCopyField', field.name)"
+            :disabled="!field.value"
             @click="copy(field.value, field.name, { sensitive: field.protected })"
           />
         </UTooltip>

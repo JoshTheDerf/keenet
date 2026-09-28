@@ -40,35 +40,36 @@ function goBack(): void {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0">
-    <!-- Left sub-nav -->
-    <aside class="shrink-0 w-56 border-r border-default bg-muted/30 flex flex-col p-3 gap-1">
+  <div class="flex h-full min-h-0 flex-col md:flex-row">
+    <!-- Sub-nav: a column on desktop, a scrolling strip of tabs on phones -->
+    <aside
+      class="shrink-0 flex gap-1 p-2 border-b border-default bg-muted/30 overflow-x-auto md:w-56 md:flex-col md:p-3 md:border-b-0 md:border-r md:overflow-x-visible"
+    >
       <UButton
         icon="i-lucide-arrow-left"
         color="neutral"
         variant="ghost"
-        class="justify-start mb-2"
-        block
+        class="shrink-0 justify-start md:mb-2 md:w-full"
         :label="t('back')"
         @click="goBack"
       />
-      <USeparator class="mb-2" />
+      <USeparator class="hidden md:flex mb-2" />
       <UButton
         v-for="item in nav"
         :key="item.key"
         :icon="item.icon"
         :color="ui.settingsPage === item.key ? 'primary' : 'neutral'"
         :variant="ui.settingsPage === item.key ? 'soft' : 'ghost'"
-        class="justify-start"
-        block
+        class="shrink-0 justify-start md:w-full"
         :label="item.label"
+        :aria-current="ui.settingsPage === item.key ? 'page' : undefined"
         @click="select(item.key)"
       />
     </aside>
 
     <!-- Right content -->
-    <main class="flex-1 min-w-0 overflow-y-auto">
-      <div class="max-w-3xl mx-auto p-6">
+    <main class="flex-1 min-w-0 min-h-0 overflow-y-auto">
+      <div class="max-w-3xl mx-auto p-4 md:p-6">
         <SettingsGeneral v-if="ui.settingsPage === 'general'" />
         <SettingsFiles v-else-if="ui.settingsPage === 'files'" />
         <SettingsStorage v-else-if="ui.settingsPage === 'storage'" />

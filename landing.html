@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KeeNet — Free Cross-Platform Password Manager</title>
-  <meta name="description" content="Free cross-platform password manager compatible with KeePass. Desktop, mobile, and web.">
+  <title>KeeNet Password Manager</title>
+  <meta name="description" content="KeeNet is a free password manager that opens and edits KeePass (.kdbx) files on desktop, mobile and the web.">
   <link rel="icon" type="image/svg+xml" href="/app/favicon.svg">
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -80,88 +80,90 @@
     </div>
 
     <h1>KeeNet</h1>
-    <p class="tagline">Free cross-platform password manager compatible with KeePass. Secure your passwords on desktop, mobile, and the web.</p>
+    <p class="tagline">KeeNet is a free password manager that works with your KeePass files. Use it in the browser, or grab the desktop or Android app.</p>
 
     <div class="cta-group">
-      <a class="btn btn-primary" href="/app/">Launch Web App</a>
+      <a class="btn btn-primary" href="/app/">Open the web app</a>
       <a class="btn btn-ghost" href="#downloads">Download</a>
     </div>
 
     <div class="downloads" id="downloads">
-      <h2>Download for your platform</h2>
+      <h2>Download v1.0.0</h2>
       <div class="download-grid">
 
         <div class="download-card">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 2v4M8 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>
           <div class="platform">macOS</div>
-          <div class="arch">Apple Silicon &amp; Intel</div>
-          <div class="format">.dmg</div>
-          <a href="https://github.com/JoshTheDerf/keenet/releases/latest" target="_blank" rel="noopener">Download</a>
+          <div class="arch">Universal (Apple Silicon &amp; Intel)</div>
+          <div class="format">.dmg &middot; 8.3 MB</div>
+          <a href="https://github.com/JoshTheDerf/keenet/releases/download/v1.0.0/KeeNet_1.0.0_universal.dmg" target="_blank" rel="noopener">Download</a>
         </div>
 
         <div class="download-card">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5l9-2 9 2v14l-9 2-9-2V5z"/><path d="M3 5l9 2 9-2M12 7v14"/></svg>
           <div class="platform">Windows</div>
-          <div class="arch">x64 &amp; ARM64</div>
-          <div class="format">.exe (NSIS installer)</div>
-          <a href="https://github.com/JoshTheDerf/keenet/releases/latest" target="_blank" rel="noopener">Download</a>
+          <div class="arch">x64</div>
+          <div class="format">.exe (NSIS installer) &middot; 3.6 MB</div>
+          <a href="https://github.com/JoshTheDerf/keenet/releases/download/v1.0.0/KeeNet_1.0.0_x64-setup.exe" target="_blank" rel="noopener">Download</a>
         </div>
 
         <div class="download-card">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7v10l10 5 10-5V7L12 2z"/><path d="M2 7l10 5 10-5M12 12v10"/></svg>
           <div class="platform">Linux</div>
-          <div class="arch">x64 &amp; ARM64</div>
-          <div class="format">.AppImage</div>
-          <a href="https://github.com/JoshTheDerf/keenet/releases/latest" target="_blank" rel="noopener">Download</a>
+          <div class="arch">x64 (amd64)</div>
+          <div class="format">.AppImage &middot; 76 MB</div>
+          <a href="https://github.com/JoshTheDerf/keenet/releases/download/v1.0.0/KeeNet_1.0.0_amd64.AppImage" target="_blank" rel="noopener">Download</a>
+          <a href="https://github.com/JoshTheDerf/keenet/releases/download/v1.0.0/KeeNet_1.0.0_amd64.deb" target="_blank" rel="noopener" style="margin-top:.5rem">.deb &middot; 4.7 MB</a>
         </div>
 
         <div class="download-card">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
           <div class="platform">Android</div>
           <div class="arch">All supported ABIs</div>
-          <div class="format">.apk</div>
-          <a href="https://github.com/JoshTheDerf/keenet/releases/latest" target="_blank" rel="noopener">Download</a>
+          <div class="format">.apk &middot; 7.3 MB</div>
+          <a href="https://github.com/JoshTheDerf/keenet/releases/download/v1.0.0/KeeNet_1.0.0.apk" target="_blank" rel="noopener">Download</a>
         </div>
 
       </div>
+      <p style="margin-top: 1.5rem; font-size: 0.85rem; color: var(--muted);">All builds are <strong>unsigned</strong> for now, so you may have to click past Gatekeeper (macOS) or SmartScreen (Windows) the first time you run KeeNet.</p>
     </div>
   </section>
 
   <section class="features">
     <div class="feature">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L4 7v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V7l-8-5z"/></svg>
-      <h3>End-to-End Encrypted</h3>
-      <p>Your vault is encrypted with AES-256 or ChaCha20. Your master password never leaves your device.</p>
+      <h3>Encrypted on your device</h3>
+      <p>Your vault is encrypted with AES-256 or ChaCha20, and your master password never leaves your device.</p>
     </div>
     <div class="feature">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      <h3>KeePass Compatible</h3>
-      <p>Open and edit .kdbx files from KeePass, KeePassXC, or any compatible client. Full interoperability.</p>
+      <h3>KeePass compatible</h3>
+      <p>Open and edit the same .kdbx files you use in KeePass, KeePassXC or any other compatible client.</p>
     </div>
     <div class="feature">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/><path d="M3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18"/></svg>
-      <h3>Cross-Platform</h3>
-      <p>Native apps for macOS, Windows, Linux, and Android. Or use the web app from any browser with PWA support.</p>
+      <h3>Desktop, mobile and web</h3>
+      <p>There are apps for macOS, Windows, Linux and Android. You can also run it in any modern browser and install it as a PWA.</p>
     </div>
     <div class="feature">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-      <h3>Works Offline</h3>
-      <p>The web app installs as a PWA and works fully offline. Your data stays on your devices — no cloud required.</p>
+      <h3>Works offline</h3>
+      <p>Once installed, the web app works without a connection. Your files stay on your devices unless you choose to sync them to a cloud service.</p>
     </div>
     <div class="feature">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-      <h3>Open Source</h3>
-      <p>MIT licensed and fully open source. Audit the code, contribute, or self-host the web app on your own server.</p>
+      <h3>Open source</h3>
+      <p>KeeNet is MIT licensed. You can read the code, send in fixes, or host the web app on your own server.</p>
     </div>
     <div class="feature">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-      <h3>Biometric Unlock</h3>
-      <p>Unlock your vault with Face ID, Touch ID, or fingerprint on supported mobile and desktop devices.</p>
+      <h3>Biometric unlock</h3>
+      <p>On mobile, you can unlock your vault with your fingerprint or face (if your device supports it).</p>
     </div>
   </section>
 
   <footer>
-    <p>KeeNet &mdash; <a href="https://github.com/JoshTheDerf/keenet">GitHub</a> &mdash; <a href="/app/">Web App</a> &mdash; MIT License</p>
+    <p>KeeNet &middot; <a href="https://github.com/JoshTheDerf/keenet">GitHub</a> &middot; <a href="/app/">Web app</a> &middot; MIT License</p>
   </footer>
 </body>
 </html>

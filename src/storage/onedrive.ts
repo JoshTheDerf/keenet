@@ -5,7 +5,7 @@ import type {
   StorageFileStat,
   StorageDirEntry
 } from './types';
-import { createOAuthProviderAuth, statusOf } from './oauth-provider';
+import { createOAuthProviderAuth, parseTimestamp, statusOf } from './oauth-provider';
 import { StorageConflictError, StorageNotFoundError } from './errors';
 
 const AUTH_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
@@ -41,23 +41,34 @@ interface DriveItem {
 
 interface DriveItemList {
   value: DriveItem[];
+  '@odata.nextLink'?: string;
 }
 
-/** A path containing a slash is treated as a drive path; otherwise as an item id. */
+/**
+ * A path containing a slash is treated as a drive path (a leading slash makes a
+ * top-level name a path, e.g. `/Backups`); otherwise as an item id, which is
+ * what {@link onedriveProvider.list} hands out.
+ */
 function itemUrl(path: string): string {
   if (path.includes('/')) {
-    return `${BASE}/drive/root:/${path.replace(/^\/+/, '')}:`;
+    const segments = path.split('/').filter(Boolean).map(encodeURIComponent);
+    return `${BASE}/drive/root:/${segments.join('/')}:`;
   }
   return `${BASE}/drive/items/${encodeURIComponent(path)}`;
 }
 
 function toStat(item: DriveItem): StorageFileStat {
-  return {
-    rev: item.eTag,
-    modified: item.lastModifiedDateTime
-      ? Date.parse(item.lastModifiedDateTime) || undefined
-      : undefined
-  };
+  return { rev: item.eTag, modified: parseTimestamp(item.lastModifiedDateTime) };
+}
+
+/** GET item metadata, mapping 404 to {@link StorageNotFoundError}. */
+async function getItem(path: string): Promise<DriveItem> {
+  try {
+    return (await (await apiFetch(itemUrl(path))).json()) as DriveItem;
+  } catch (e) {
+    if (statusOf(e) === 404) throw new StorageNotFoundError('onedrive');
+    throw e;
+  }
 }
 
 export const onedriveProvider: StorageProvider = {
@@ -81,12 +92,16 @@ export const onedriveProvider: StorageProvider = {
   },
 
   async list(dir: string): Promise<StorageDirEntry[]> {
-    const url = dir
-      ? `${BASE}/drive/root:/${dir.replace(/^\/+/, '')}:/children`
-      : `${BASE}/drive/root/children`;
-    const res = await apiFetch(url);
-    const json = (await res.json()) as DriveItemList;
-    return json.value.map((item) => ({
+    // `dir` is either empty (root), an item id from a previous listing, or a
+    // slash path (backup rotation). Graph pages children via @odata.nextLink.
+    let url: string | undefined = dir ? `${itemUrl(dir)}/children` : `${BASE}/drive/root/children`;
+    const items: DriveItem[] = [];
+    while (url) {
+      const json = (await (await apiFetch(url)).json()) as DriveItemList;
+      items.push(...json.value);
+      url = json['@odata.nextLink'];
+    }
+    return items.map((item) => ({
       name: item.name,
       path: item.id,
       dir: !!item.folder,
@@ -96,20 +111,13 @@ export const onedriveProvider: StorageProvider = {
 
   async load(path: string): Promise<StorageLoadResult> {
     // Fetch metadata first (for stat + a pre-authenticated download URL).
-    let metaRes: Response;
-    try {
-      metaRes = await apiFetch(itemUrl(path));
-    } catch (e) {
-      if (statusOf(e) === 404) throw new StorageNotFoundError('onedrive');
-      throw e;
-    }
-    const item = (await metaRes.json()) as DriveItem;
+    const item = await getItem(path);
     const downloadUrl = item['@microsoft.graph.downloadUrl'];
 
     let data: ArrayBuffer;
     if (downloadUrl) {
       // downloadUrl is pre-authenticated; do not send the bearer token.
-      const dlRes = await fetch(downloadUrl);
+      const dlRes = await fetch(downloadUrl, { cache: 'no-store' });
       if (!dlRes.ok) {
         throw new Error(`OneDrive load failed: ${dlRes.status} ${dlRes.statusText}`);
       }
@@ -127,35 +135,26 @@ export const onedriveProvider: StorageProvider = {
     _config?: Record<string, string>,
     rev?: string
   ): Promise<StorageFileStat> {
-    const url = path.includes('/')
-      ? `${BASE}/drive/root:/${path.replace(/^\/+/, '')}:/content`
-      : `${BASE}/drive/items/${encodeURIComponent(path)}/content`;
     const headers: Record<string, string> = { 'Content-Type': 'application/octet-stream' };
     // Conditional overwrite: 412 if the eTag moved on since our merge base.
     if (rev) headers['If-Match'] = rev;
     let res: Response;
     try {
-      res = await apiFetch(url, { method: 'PUT', headers, body: data });
+      res = await apiFetch(`${itemUrl(path)}/content`, { method: 'PUT', headers, body: data });
     } catch (e) {
       if (statusOf(e) === 412) throw new StorageConflictError('onedrive');
       throw e;
     }
-    const item = (await res.json()) as DriveItem;
-    return toStat(item);
+    return toStat((await res.json()) as DriveItem);
   },
 
   async stat(path: string): Promise<StorageFileStat> {
-    const res = await apiFetch(itemUrl(path));
-    const item = (await res.json()) as DriveItem;
-    return toStat(item);
+    return toStat(await getItem(path));
   },
 
   async remove(path: string): Promise<void> {
-    const url = path.includes('/')
-      ? `${BASE}/drive/root:/${path.replace(/^\/+/, '')}:`
-      : `${BASE}/drive/items/${encodeURIComponent(path)}`;
     try {
-      await apiFetch(url, { method: 'DELETE' });
+      await apiFetch(itemUrl(path), { method: 'DELETE' });
     } catch (e) {
       if (statusOf(e) !== 404) throw e;
     }

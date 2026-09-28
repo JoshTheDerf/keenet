@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { t } from '@/i18n';
 import KeeNetLogo from '@/components/shared/KeeNetLogo.vue';
-
-const version = '2.0.0';
+// Named import: Vite inlines just this field, not the whole package.json.
+import { version } from '../../../package.json';
 </script>
 
 <template>
@@ -68,7 +68,7 @@ const version = '2.0.0';
             rel="noopener noreferrer"
             class="text-primary hover:underline"
           >
-            {{ t('setAboutOriginalProject') }} — github.com/keeweb/keeweb
+            {{ t('setAboutOriginalProject') }} (github.com/keeweb/keeweb)
           </a>
         </li>
         <li class="flex items-center gap-2">

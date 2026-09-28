@@ -200,7 +200,7 @@ watch(open, (isOpen) => {
               <UButton
                 icon="i-lucide-upload"
                 variant="soft"
-:label="t('importChooseCsv')"
+                :label="t('importChooseCsv')"
                 @click="pickCsv"
               />
               <span v-if="csvFileName" class="text-sm text-muted truncate">{{ csvFileName }}</span>
@@ -279,7 +279,7 @@ watch(open, (isOpen) => {
               <UButton
                 icon="i-lucide-upload"
                 variant="soft"
-:label="t('importChooseKdbx')"
+                :label="t('importChooseKdbx')"
                 @click="pickKdbx"
               />
               <span v-if="kdbxFileName" class="text-sm text-muted truncate">{{ kdbxFileName }}</span>
@@ -300,7 +300,7 @@ watch(open, (isOpen) => {
                 <UButton
                   icon="i-lucide-file-key"
                   variant="soft"
-:label="t('setFileSelKeyFile')"
+                  :label="t('setFileSelKeyFile')"
                   @click="pickKeyFile"
                 />
                 <span v-if="keyFileName" class="text-sm text-muted truncate">{{ keyFileName }}</span>
@@ -340,7 +340,7 @@ watch(open, (isOpen) => {
           v-else
           color="primary"
           icon="i-lucide-download"
-:label="t('importCsvRun')"
+          :label="t('importCsvRun')"
           :loading="kdbxBusy"
           :disabled="!canImportKdbx"
           @click="importKdbx"

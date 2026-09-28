@@ -9,7 +9,7 @@ import { useIdle } from '@vueuse/core';
 import { useVaultStore } from '@/stores/vault';
 import { useSettingsStore } from '@/stores/settings';
 import { useUiStore } from '@/stores/ui';
-import { getProvider } from '@/storage';
+import { hasDestination, saveToDestination } from '@/composables/useAutoSave';
 import { desktop, isDesktop } from '@/composables/useDesktop';
 import { t } from '@/i18n';
 
@@ -25,9 +25,10 @@ export async function lockNow(): Promise<void> {
   const ui = useUiStore();
   if (!vault.hasFiles) return;
   for (const file of vault.rawFiles()) {
-    const hasDest = file.fsHandle || (getProvider(file.storage) && file.path);
-    if (file.modified && hasDest) {
-      await vault.persistFile(file.id).catch(() => undefined);
+    // Same route as auto-save, so locking never blindly overwrites a remote
+    // copy that another device changed (sync merges it in first).
+    if (file.modified && hasDestination(file)) {
+      await saveToDestination(file).catch(() => undefined);
     }
   }
   for (const f of [...vault.files]) vault.closeFile(f.id);

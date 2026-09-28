@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/stores/settings';
 import { useUiStore } from '@/stores/ui';
 import { PROVIDERS } from '@/storage';
 import { chooseFolder, hasFolder, fileSystemProvider, supportsFileSystemAccess } from '@/storage/filesystem';
+import { errorMessage as errText } from '@/components/shared/format';
 
 const settings = useSettingsStore();
 const ui = useUiStore();
@@ -32,10 +33,6 @@ onMounted(() => {
   refreshAuth();
   void refreshFolder();
 });
-
-function errText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
 
 async function signIn(type: string): Promise<void> {
   const p = PROVIDERS.find((x) => x.type === type);
@@ -85,7 +82,7 @@ function onForgetFolder(): void {
     </div>
 
     <UCard v-for="provider in PROVIDERS" :key="provider.type">
-      <div class="flex items-start justify-between gap-4">
+      <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div class="flex items-start gap-3 min-w-0">
           <UIcon :name="provider.icon" class="text-xl text-muted mt-0.5 shrink-0" />
           <div class="min-w-0">
@@ -115,7 +112,7 @@ function onForgetFolder(): void {
           </div>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex flex-wrap items-center gap-2 ml-auto">
           <template v-if="provider.type === 'fsaccess'">
             <UButton
               icon="i-lucide-folder-open"
@@ -156,7 +153,10 @@ function onForgetFolder(): void {
             />
           </template>
 
-          <USwitch v-model="settings.storageEnabled[provider.type]" />
+          <USwitch
+            v-model="settings.storageEnabled[provider.type]"
+            :aria-label="t('setStorageEnable', provider.title)"
+          />
         </div>
       </div>
 

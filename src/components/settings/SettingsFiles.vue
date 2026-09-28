@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watchEffect } from 'vue';
+import { computed, reactive, ref, useTemplateRef, watchEffect } from 'vue';
 import { useVaultStore } from '@/stores/vault';
 import { useUiStore } from '@/stores/ui';
 import { pickFileViaInput, downloadData } from '@/storage/local';
 import { t } from '@/i18n';
 import type { FileVm } from '@/types';
 import ImportDialog from '@/components/import/ImportDialog.vue';
+import CloseFileConfirm from '@/components/shared/CloseFileConfirm.vue';
+import { errorMessage } from '@/components/shared/format';
+import SettingRow from './SettingRow.vue';
 
 const vault = useVaultStore();
 const ui = useUiStore();
@@ -19,21 +22,16 @@ function onImport(file: FileVm): void {
   importOpen.value = true;
 }
 
+/** Drafts for the text inputs (committed on change) and the password form. */
 interface FileForm {
   name: string;
   defaultUser: string;
   password: string;
   confirmPassword: string;
   allowEmpty: boolean;
-  historyMax: number;
-  recycleBin: boolean;
-  formatVersion: 3 | 4;
-  kdf: string;
   busy: boolean;
 }
 
-// Per-file editor state. FileVm doesn't expose defaultUser / recycle-bin /
-// history settings, so those start with sensible defaults (see notes below).
 const forms = reactive<Record<string, FileForm>>({});
 
 watchEffect(() => {
@@ -43,14 +41,10 @@ watchEffect(() => {
     if (!forms[file.id]) {
       forms[file.id] = {
         name: file.name,
-        defaultUser: '',
+        defaultUser: file.defaultUser,
         password: '',
         confirmPassword: '',
         allowEmpty: false,
-        historyMax: 10,
-        recycleBin: true,
-        formatVersion: (file.formatVersion === 3 ? 3 : 4) as 3 | 4,
-        kdf: file.kdf || 'Argon2d',
         busy: false
       };
     }
@@ -59,13 +53,18 @@ watchEffect(() => {
   for (const id of Object.keys(forms)) if (!seen.has(id)) delete forms[id];
 });
 
-const historyItems = computed<{ label: string; value: number }[]>(() => [
-  { label: t('setFileHistDisabled'), value: 0 },
-  { label: `10 ${t('detHistoryRecs')}`, value: 10 },
-  { label: `20 ${t('detHistoryRecs')}`, value: 20 },
-  { label: `50 ${t('detHistoryRecs')}`, value: 50 },
-  { label: `100 ${t('detHistoryRecs')}`, value: 100 }
-]);
+const HISTORY_STEPS = [10, 20, 50, 100];
+
+/** History choices, plus the file's current value when it isn't a preset step. */
+function historyItems(file: FileVm): { label: string; value: number }[] {
+  const steps = HISTORY_STEPS.includes(file.historyMaxItems) || file.historyMaxItems <= 0
+    ? HISTORY_STEPS
+    : [...HISTORY_STEPS, file.historyMaxItems].sort((a, b) => a - b);
+  return [
+    { label: t('setFileHistDisabled'), value: 0 },
+    ...steps.map((n) => ({ label: `${n} ${t('detHistoryRecs')}`, value: n }))
+  ];
+}
 
 const formatItems = computed<{ label: string; value: string }[]>(() => [
   { label: 'KDBX 3.1', value: '3.1' },
@@ -107,7 +106,7 @@ async function onApplyPassword(file: FileVm): Promise<void> {
   } catch (e) {
     ui.notify(t('setFilePassChangeError'), {
       color: 'error',
-      description: e instanceof Error ? e.message : String(e)
+      description: errorMessage(e)
     });
   } finally {
     form.busy = false;
@@ -123,7 +122,7 @@ async function onSetKeyFile(file: FileVm): Promise<void> {
   } catch (e) {
     ui.notify(t('setFileKeyFileSetError'), {
       color: 'error',
-      description: e instanceof Error ? e.message : String(e)
+      description: errorMessage(e)
     });
   }
 }
@@ -131,7 +130,7 @@ async function onSetKeyFile(file: FileVm): Promise<void> {
 async function onGenerateKeyFile(file: FileVm): Promise<void> {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
-  const name = 'keeweb.key';
+  const name = `${file.name.replace(/\.kdbx$/i, '')}.key`;
   try {
     await vault.changeKeyFile(file.id, bytes.buffer, name);
     downloadData(name, bytes);
@@ -142,7 +141,7 @@ async function onGenerateKeyFile(file: FileVm): Promise<void> {
   } catch (e) {
     ui.notify(t('setFileKeyFileGenError'), {
       color: 'error',
-      description: e instanceof Error ? e.message : String(e)
+      description: errorMessage(e)
     });
   }
 }
@@ -154,18 +153,16 @@ async function onRemoveKeyFile(file: FileVm): Promise<void> {
   } catch (e) {
     ui.notify(t('setFileKeyFileRemoveError'), {
       color: 'error',
-      description: e instanceof Error ? e.message : String(e)
+      description: errorMessage(e)
     });
   }
 }
 
 function onHistory(file: FileVm, value: number): void {
-  forms[file.id].historyMax = value;
   vault.setHistoryMaxItems(file.id, value);
 }
 
 function onRecycleBin(file: FileVm, value: boolean): void {
-  forms[file.id].recycleBin = value;
   vault.setRecycleBinEnabled(file.id, value);
 }
 
@@ -190,7 +187,6 @@ function onExportHtml(file: FileVm): void {
 }
 
 function onKdf(file: FileVm, value: string): void {
-  forms[file.id].kdf = value;
   vault.setKdf(file.id, value);
 }
 
@@ -212,42 +208,30 @@ async function onSync(file: FileVm): Promise<void> {
   }
 }
 
-// Confirm before closing a file that has unsaved changes.
-const closeConfirmOpen = ref(false);
-const closeTargetId = ref<string | null>(null);
-const closeTargetName = ref('');
-
-function onClose(file: FileVm): void {
-  if (file.modified) {
-    closeTargetId.value = file.id;
-    closeTargetName.value = file.name;
-    closeConfirmOpen.value = true;
-  } else {
-    vault.closeFile(file.id);
-  }
-}
-
-function confirmClose(): void {
-  if (closeTargetId.value) vault.closeFile(closeTargetId.value);
-  closeConfirmOpen.value = false;
-  closeTargetId.value = null;
-}
+const closer = useTemplateRef<InstanceType<typeof CloseFileConfirm>>('closer');
 </script>
 
 <template>
   <div class="flex flex-col gap-6">
     <h1 class="text-xl font-semibold">{{ t('setFilesTitle') }}</h1>
 
-    <p v-if="!vault.hasFiles" class="text-sm text-muted">{{ t('extensionErrorNoOpenFiles') }}</p>
+    <div v-if="!vault.hasFiles" class="flex flex-col items-start gap-3">
+      <p class="text-sm text-muted">{{ t('extensionErrorNoOpenFiles') }}</p>
+      <UButton
+        icon="i-lucide-folder-open"
+        :label="t('cmdOpenDatabase')"
+        @click="ui.showScreen('open')"
+      />
+    </div>
 
     <UCard v-for="file in vault.files" :key="file.id">
       <template #header>
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div class="flex items-center gap-2 min-w-0">
             <UIcon name="i-lucide-database" class="shrink-0 text-muted" />
             <span class="font-medium truncate">{{ file.name }}</span>
           </div>
-          <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+          <div class="flex flex-wrap items-center gap-1.5">
             <UBadge color="neutral" variant="subtle" class="capitalize" :label="file.storage" />
             <UBadge color="neutral" variant="subtle" :label="`KDBX ${file.formatVersion}`" />
             <UBadge v-if="file.kdf" color="neutral" variant="subtle" :label="file.kdf" />
@@ -299,7 +283,7 @@ function confirmClose(): void {
               <UButton
                 icon="i-lucide-key-round"
                 :loading="forms[file.id].busy"
-:label="t('setFileChangePassBtn')"
+                :label="t('setFileChangePassBtn')"
                 @click="onApplyPassword(file)"
               />
             </div>
@@ -344,24 +328,20 @@ function confirmClose(): void {
         <!-- History -->
         <UFormField :label="t('setFileHistMode')" :help="t('setFileHistLen')">
           <USelect
-            :model-value="forms[file.id].historyMax"
-            :items="historyItems"
+            :model-value="file.historyMaxItems"
+            :items="historyItems(file)"
             class="w-64"
             @update:model-value="onHistory(file, $event)"
           />
         </UFormField>
 
         <!-- Recycle bin -->
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <div class="text-sm font-medium">{{ t('setFileEnableTrash') }}</div>
-            <div class="text-xs text-muted">{{ t('setFileTrashHelp') }}</div>
-          </div>
+        <SettingRow :label="t('setFileEnableTrash')" :help="t('setFileTrashHelp')">
           <USwitch
-            :model-value="forms[file.id].recycleBin"
+            :model-value="file.recycleBinEnabled"
             @update:model-value="onRecycleBin(file, $event)"
           />
-        </div>
+        </SettingRow>
 
         <USeparator />
 
@@ -379,7 +359,7 @@ function confirmClose(): void {
                 icon="i-lucide-arrow-up-circle"
                 color="primary"
                 variant="soft"
-:label="t('setFileUpgradeFormat')"
+                :label="t('setFileUpgradeFormat')"
                 @click="onUpgradeFormat(file)"
               />
               <span class="text-xs text-muted">{{ t('setFileUpgradeFormatHelp') }}</span>
@@ -390,7 +370,7 @@ function confirmClose(): void {
         <!-- KDF -->
         <UFormField :label="t('setFileKdfParams')">
           <USelect
-            :model-value="forms[file.id].kdf"
+            :model-value="file.kdf"
             :items="kdfItems"
             class="w-64"
             @update:model-value="onKdf(file, $event)"
@@ -403,21 +383,21 @@ function confirmClose(): void {
         <UFormField :label="t('setFileImportExport')">
           <div class="flex flex-wrap gap-2">
             <UButton
-              icon="i-lucide-download"
+              icon="i-lucide-file-input"
               variant="soft"
-:label="`${t('cmdImport')}…`"
+              :label="`${t('cmdImport')}…`"
               @click="onImport(file)"
             />
             <UButton
               icon="i-lucide-file-code"
               variant="soft"
-:label="`${t('cmdExport')} XML`"
+              :label="`${t('cmdExport')} XML`"
               @click="onExportXml(file)"
             />
             <UButton
               icon="i-lucide-file-text"
               variant="soft"
-:label="`${t('cmdExport')} HTML`"
+              :label="`${t('cmdExport')} HTML`"
               @click="onExportHtml(file)"
             />
           </div>
@@ -439,7 +419,7 @@ function confirmClose(): void {
             color="neutral"
             variant="soft"
             :loading="forms[file.id]?.busy"
-:label="t('setFileSync')"
+            :label="t('setFileSync')"
             @click="onSync(file)"
           />
           <UButton
@@ -447,7 +427,7 @@ function confirmClose(): void {
             color="neutral"
             variant="soft"
             :label="t('setFileClose')"
-            @click="onClose(file)"
+            @click="closer?.request(file.id)"
           />
         </div>
       </template>
@@ -455,25 +435,6 @@ function confirmClose(): void {
 
     <ImportDialog v-model:open="importOpen" :file-id="importFileId" />
 
-    <!-- Confirm closing a file with unsaved changes -->
-    <UModal v-model:open="closeConfirmOpen" :title="t('setFileUnsaved')">
-      <template #body>
-        <p class="text-sm text-muted">
-          <span class="font-medium text-default">{{ closeTargetName }}</span> —
-          {{ t('setFileUnsavedBody') }}
-        </p>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            :label="t('alertCancel')"
-            @click="closeConfirmOpen = false"
-          />
-          <UButton color="error" :label="t('setFileCloseNoSave')" @click="confirmClose" />
-        </div>
-      </template>
-    </UModal>
+    <CloseFileConfirm ref="closer" />
   </div>
 </template>

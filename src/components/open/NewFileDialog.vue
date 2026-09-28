@@ -5,6 +5,9 @@ import MasterPasswordField from './MasterPasswordField.vue';
 
 const open = defineModel<boolean>('open', { default: false });
 
+/** True while the parent is creating the file (key derivation takes a moment). */
+const props = withDefaults(defineProps<{ busy?: boolean }>(), { busy: false });
+
 const emit = defineEmits<{ submit: [payload: { name: string; password: string }] }>();
 
 const name = ref(t('openDefaultDbName'));
@@ -23,7 +26,7 @@ watch(open, (isOpen) => {
 });
 
 function submit(): void {
-  if (!canSubmit.value) return;
+  if (!canSubmit.value || props.busy) return;
   emit('submit', { name: name.value.trim(), password: password.value });
 }
 </script>
@@ -43,6 +46,7 @@ function submit(): void {
         <UFormField
           :label="t('setFileConfirmPass')"
           :error="confirm.length > 0 && !passwordsMatch ? t('setFilePassNotMatch') : undefined"
+          :help="!password && !confirm ? t('openNewEmptyPassHint') : undefined"
         >
           <MasterPasswordField v-model="confirm" @enter="submit" />
         </UFormField>
@@ -55,8 +59,9 @@ function submit(): void {
         <UButton
           color="primary"
           icon="i-lucide-plus"
-:label="t('create')"
+          :label="t('create')"
           :disabled="!canSubmit"
+          :loading="busy"
           @click="submit"
         />
       </div>

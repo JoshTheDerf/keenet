@@ -5,6 +5,8 @@ import { useVaultStore } from '@/stores/vault';
 import { useClipboard } from '@/composables/useClipboard';
 import { parseOtpUri, computeOtp, totpTimeLeft, type OtpParams } from '@/domain/otp';
 import TextPromptModal from '@/components/shared/TextPromptModal.vue';
+import ConfirmModal from '@/components/shared/ConfirmModal.vue';
+import { errorMessage } from '@/components/shared/format';
 
 // Minimal typing for the experimental BarcodeDetector API (not in lib.dom).
 interface DetectedBarcode {
@@ -97,6 +99,12 @@ function confirmOtp(uri: string): void {
   vault.updateField(props.fileId, props.entryId, 'otp', uri);
 }
 
+const removeOpen = ref(false);
+
+function removeOtp(): void {
+  vault.removeField(props.fileId, props.entryId, 'otp');
+}
+
 // ---- QR scanning ---------------------------------------------------------
 function stopScan(): void {
   if (scanTimer) {
@@ -123,7 +131,7 @@ async function startScan(): Promise<void> {
     const detector = new Ctor({ formats: ['qr_code'] });
     scanTimer = setInterval(() => void detectFrame(detector), 400);
   } catch (e) {
-    scanError.value = e instanceof Error ? e.message : String(e);
+    scanError.value = errorMessage(e);
     stopScan();
   }
 }
@@ -195,6 +203,15 @@ onUnmounted(() => {
           @click="copy(code, t('detOtpField'))"
         />
       </UTooltip>
+      <UTooltip :text="t('detOtpRemove')">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-x"
+          :aria-label="t('detOtpRemove')"
+          @click="removeOpen = true"
+        />
+      </UTooltip>
     </div>
 
     <div v-else class="flex items-center gap-2">
@@ -211,9 +228,27 @@ onUnmounted(() => {
       >
         {{ t('detSetupOtpScanButton') }}
       </UButton>
-      <span v-if="error" class="text-xs text-error">{{ t('detOtpInvalid') }}</span>
+      <template v-if="error">
+        <span class="text-xs text-error">{{ t('detOtpInvalid') }}</span>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          icon="i-lucide-x"
+          :aria-label="t('detOtpRemove')"
+          @click="removeOpen = true"
+        />
+      </template>
     </div>
   </UFormField>
+
+  <ConfirmModal
+    v-model:open="removeOpen"
+    :title="t('detOtpRemove')"
+    :description="t('detOtpRemoveBody')"
+    :confirm-label="t('remove')"
+    @confirm="removeOtp"
+  />
 
   <TextPromptModal
     v-model:open="manualOpen"
@@ -222,7 +257,7 @@ onUnmounted(() => {
     @confirm="confirmOtp"
   />
 
-  <UModal v-model:open="scanOpen" :title="t('detSetupOtpScanButton')" @close="closeScan">
+  <UModal v-model:open="scanOpen" :title="t('detSetupOtpScanButton')">
     <template #body>
       <div class="flex flex-col gap-3">
         <UAlert
@@ -230,7 +265,7 @@ onUnmounted(() => {
           color="error"
           variant="soft"
           icon="i-lucide-camera-off"
-:title="t('detOtpCameraError')"
+          :title="t('detOtpCameraError')"
           :description="scanError"
         />
         <video

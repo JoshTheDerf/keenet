@@ -28,7 +28,10 @@ watch(
   }
 );
 
+// Both @change and @blur land here; only write when the date actually changed,
+// so tabbing through the field doesn't mark the file modified.
 function commit(): void {
+  if (local.value === toInput(props.expires)) return;
   if (!local.value) {
     vault.setExpiry(props.fileId, props.entryId, undefined);
     return;

@@ -6,7 +6,6 @@ import {
   resolveDefaultPreset,
   presetPoolSize,
   estimateEntropyBits,
-  CHAR_RANGES,
   type GeneratorPreset,
   type GeneratorRanges
 } from '@/domain/generator';
@@ -16,9 +15,8 @@ import { useClipboard } from '@/composables/useClipboard';
 import PasswordStrengthBar from '@/components/shared/PasswordStrengthBar.vue';
 import TextPromptModal from '@/components/shared/TextPromptModal.vue';
 
-const props = withDefaults(defineProps<{ initialPassword?: string }>(), {
-  initialPassword: ''
-});
+/** `selectLabel` names the footer action, e.g. "Use" when filling a field. */
+const props = withDefaults(defineProps<{ selectLabel?: string }>(), { selectLabel: '' });
 
 const emit = defineEmits<{ select: [password: string]; close: [] }>();
 
@@ -104,11 +102,7 @@ const charsetToggles: CharsetToggle[] = [
   { key: 'ambiguous', labelKey: 'genPsAmbiguous' }
 ];
 
-// Reference the ranges map so unused-import checks stay happy and the source of
-// truth for the toggle set is explicit.
-void CHAR_RANGES;
-
-const generated = ref<string>(props.initialPassword || generatePassword(preset.value));
+const generated = ref<string>(generatePassword(preset.value));
 
 function regenerate(): void {
   generated.value = generatePassword(preset.value);
@@ -267,6 +261,7 @@ function onClose(): void {
             variant="soft"
             size="xs"
             :disabled="!isUserSelected"
+            :aria-label="t('genPsDelete')"
             @click="deletePreset"
           />
         </UTooltip>
@@ -291,6 +286,7 @@ function onClose(): void {
             variant="soft"
             size="sm"
             :disabled="!deriveInput"
+            :aria-label="t('genDeriveTooltip')"
             @click="deriveFromPassword"
           />
         </UTooltip>
@@ -334,6 +330,7 @@ function onClose(): void {
           color="neutral"
           variant="ghost"
           size="sm"
+          :aria-label="hidden ? t('genShowPass') : t('genHidePass')"
           @click="hidden = !hidden"
         />
       </UTooltip>
@@ -343,6 +340,7 @@ function onClose(): void {
           color="neutral"
           variant="ghost"
           size="sm"
+          :aria-label="t('genNewPass')"
           @click="regenerate"
         />
       </UTooltip>
@@ -352,6 +350,7 @@ function onClose(): void {
           color="neutral"
           variant="ghost"
           size="sm"
+          :aria-label="t('alertCopy')"
           @click="onCopy"
         />
       </UTooltip>
@@ -369,7 +368,7 @@ function onClose(): void {
     <!-- Footer -->
     <div class="flex items-center justify-end gap-2">
       <UButton color="neutral" variant="ghost" @click="onClose">{{ t('alertClose') }}</UButton>
-      <UButton color="primary" @click="onUse">{{ t('genUse') }}</UButton>
+      <UButton color="primary" @click="onUse">{{ props.selectLabel || t('genUse') }}</UButton>
     </div>
 
     <TextPromptModal

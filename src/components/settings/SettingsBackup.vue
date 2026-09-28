@@ -7,6 +7,8 @@ import { useVaultStore } from '@/stores/vault';
 import { listBackups, restoreBackup, removeBackup, type BackupEntry } from '@/storage/backup';
 import { downloadData } from '@/storage/local';
 import type { FileVm } from '@/types';
+import { errorMessage } from '@/components/shared/format';
+import SettingRow from './SettingRow.vue';
 
 const settings = useSettingsStore();
 const ui = useUiStore();
@@ -57,7 +59,7 @@ async function onDownload(file: FileVm, entry: BackupEntry): Promise<void> {
   } catch (e) {
     ui.notify(t('setBackupDownloadError'), {
       color: 'error',
-      description: e instanceof Error ? e.message : String(e)
+      description: errorMessage(e)
     });
   }
 }
@@ -74,13 +76,9 @@ async function onDelete(entry: BackupEntry): Promise<void> {
 
     <UCard>
       <div class="flex flex-col gap-5">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <div class="text-sm font-medium">{{ t('setBackupLocal') }}</div>
-            <div class="text-xs text-muted">{{ t('setBackupLocalDesc') }}</div>
-          </div>
+        <SettingRow :label="t('setBackupLocal')" :help="t('setBackupLocalDesc')">
           <USwitch v-model="settings.backupEnabled" />
-        </div>
+        </SettingRow>
 
         <div>
           <label class="text-sm font-medium">{{ t('setBackupKeep') }}</label>
@@ -93,13 +91,9 @@ async function onDelete(entry: BackupEntry): Promise<void> {
           />
         </div>
 
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <div class="text-sm font-medium">{{ t('setBackupToStorage') }}</div>
-            <div class="text-xs text-muted">{{ t('setBackupToStorageDesc') }}</div>
-          </div>
+        <SettingRow :label="t('setBackupToStorage')" :help="t('setBackupToStorageDesc')">
           <USwitch v-model="settings.backupStorage" />
-        </div>
+        </SettingRow>
 
         <div>
           <label class="text-sm font-medium">{{ t('setFileBackupPath') }}</label>
@@ -116,13 +110,9 @@ async function onDelete(entry: BackupEntry): Promise<void> {
           />
         </div>
 
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <div class="text-sm font-medium">{{ t('setBackupSyncOnSave') }}</div>
-            <div class="text-xs text-muted">{{ t('setBackupSyncOnSaveDesc') }}</div>
-          </div>
+        <SettingRow :label="t('setBackupSyncOnSave')" :help="t('setBackupSyncOnSaveDesc')">
           <USwitch v-model="settings.syncOnSave" />
-        </div>
+        </SettingRow>
       </div>
     </UCard>
 

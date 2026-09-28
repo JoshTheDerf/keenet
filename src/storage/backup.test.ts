@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseBackupKey, keyFor } from './backup';
+import { parseBackupKey, keyFor, backupTargetPath } from './backup';
 
 describe('parseBackupKey', () => {
   it('parses a well-formed backup key', () => {
@@ -32,5 +32,33 @@ describe('keyFor', () => {
     expect(a).not.toBe(b);
     expect(parseBackupKey(a)).toMatchObject({ fileId: 'f1', time: 1720000000000 });
     expect(parseBackupKey(b)).toMatchObject({ fileId: 'f1', time: 1720000000000 });
+  });
+});
+
+describe('backupTargetPath', () => {
+  const rel = 'Backups/vault.2026-01-02-03-04-05.bak.kdbx';
+
+  it('places WebDAV backups next to the file, keeping the query', () => {
+    expect(backupTargetPath('webdav', 'https://dav.example.com/dav/vault.kdbx?requesttoken=abc', rel)).toBe(
+      'https://dav.example.com/dav/Backups/vault.2026-01-02-03-04-05.bak.kdbx?requesttoken=abc'
+    );
+  });
+
+  it('keeps Dropbox paths absolute and relative to the file folder', () => {
+    expect(backupTargetPath('dropbox', '/Keys/vault.kdbx', rel)).toBe(`/Keys/${rel}`);
+    expect(backupTargetPath('dropbox', undefined, rel)).toBe(`/${rel}`);
+  });
+
+  it('uses a root path for OneDrive item ids', () => {
+    expect(backupTargetPath('onedrive', 'D4648F06C91D9D3D!54927', rel)).toBe(`/${rel}`);
+  });
+
+  it('resolves local folder and native paths against their directory', () => {
+    expect(backupTargetPath('fsaccess', 'vault.kdbx', rel)).toBe(rel);
+    expect(backupTargetPath('file', 'C:\\Users\\me\\vault.kdbx', rel)).toBe(`C:\\Users\\me\\${rel}`);
+  });
+
+  it('returns null for id-addressed Google Drive', () => {
+    expect(backupTargetPath('gdrive', 'fileid123', rel)).toBeNull();
   });
 });

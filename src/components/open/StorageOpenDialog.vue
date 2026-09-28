@@ -9,6 +9,7 @@ import {
   supportsFileSystemAccess
 } from '@/storage/filesystem';
 import { useSettingsStore } from '@/stores/settings';
+import { errorMessage as toMessage } from '@/components/shared/format';
 
 const open = defineModel<boolean>('open', { default: false });
 
@@ -64,10 +65,6 @@ function resetState(): void {
 watch(open, (isOpen) => {
   if (isOpen) resetState();
 });
-
-function toMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
 
 /** List the current directory without re-running auth/permission checks. */
 async function listCurrent(): Promise<void> {
@@ -202,7 +199,7 @@ function onEntryClick(entry: StorageDirEntry): void {
           color="neutral"
           variant="soft"
           icon="i-lucide-info"
-:title="t('openNoProviders')"
+          :title="t('openNoProviders')"
           :description="t('openNoProvidersBody')"
         />
       </div>

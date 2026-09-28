@@ -5,7 +5,7 @@ import type {
   StorageFileStat,
   StorageDirEntry
 } from './types';
-import { createOAuthProviderAuth } from './oauth-provider';
+import { createOAuthProviderAuth, parseTimestamp, statusOf } from './oauth-provider';
 import { StorageConflictError, StorageNotFoundError } from './errors';
 
 const AUTH_URL = 'https://www.dropbox.com/oauth2/authorize';
@@ -38,6 +38,8 @@ interface DropboxEntry {
 
 interface DropboxListResult {
   entries: DropboxEntry[];
+  cursor: string;
+  has_more: boolean;
 }
 
 interface DropboxMetadata {
@@ -49,16 +51,25 @@ function entryPath(e: DropboxEntry): string {
   return e.path_display ?? e.path_lower ?? `/${e.name}`;
 }
 
+function toStat(meta: DropboxMetadata): StorageFileStat {
+  return { rev: meta.rev, modified: parseTimestamp(meta.server_modified) };
+}
+
+/**
+ * Whether `e` is a Dropbox endpoint error (HTTP 409) whose error summary
+ * contains `tag` (e.g. `not_found`, `conflict`). apiFetch puts the response
+ * body in the message.
+ */
+function isApiError(e: unknown, tag: string): boolean {
+  return statusOf(e) === 409 && e instanceof Error && e.message.includes(tag);
+}
+
 async function rpc<T>(url: string, arg: unknown): Promise<T> {
-  const res = await fetch(url, {
+  const res = await auth.apiFetch(url, {
     method: 'POST',
-    headers: { ...(await auth.authHeader()), 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(arg)
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Dropbox request failed: ${res.status} ${res.statusText} ${text}`.trim());
-  }
   return (await res.json()) as T;
 }
 
@@ -85,11 +96,18 @@ export const dropboxProvider: StorageProvider = {
   async list(dir: string): Promise<StorageDirEntry[]> {
     // Dropbox uses "" for the root, not "/".
     const path = dir && dir !== '/' ? dir : '';
-    const result = await rpc<DropboxListResult>(
-      'https://api.dropboxapi.com/2/files/list_folder',
-      { path }
-    );
-    return result.entries
+    let result = await rpc<DropboxListResult>('https://api.dropboxapi.com/2/files/list_folder', {
+      path
+    });
+    const entries = [...result.entries];
+    while (result.has_more) {
+      result = await rpc<DropboxListResult>(
+        'https://api.dropboxapi.com/2/files/list_folder/continue',
+        { cursor: result.cursor }
+      );
+      entries.push(...result.entries);
+    }
+    return entries
       .filter((e) => e['.tag'] === 'file' || e['.tag'] === 'folder')
       .map((e) => ({
         name: e.name,
@@ -100,30 +118,20 @@ export const dropboxProvider: StorageProvider = {
   },
 
   async load(path: string): Promise<StorageLoadResult> {
-    const res = await fetch('https://content.dropboxapi.com/2/files/download', {
-      method: 'POST',
-      headers: {
-        ...(await auth.authHeader()),
-        'Dropbox-API-Arg': JSON.stringify({ path })
-      }
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      if (res.status === 409 && text.includes('not_found')) {
-        throw new StorageNotFoundError('dropbox');
-      }
-      throw new Error(`Dropbox load failed: ${res.status} ${res.statusText} ${text}`.trim());
+    let res: Response;
+    try {
+      res = await auth.apiFetch('https://content.dropboxapi.com/2/files/download', {
+        method: 'POST',
+        headers: { 'Dropbox-API-Arg': JSON.stringify({ path }) }
+      });
+    } catch (e) {
+      if (isApiError(e, 'not_found')) throw new StorageNotFoundError('dropbox');
+      throw e;
     }
     const data = await res.arrayBuffer();
-    let rev: string | undefined;
-    let modified: number | undefined;
     const resultHeader = res.headers.get('Dropbox-API-Result');
-    if (resultHeader) {
-      const meta = JSON.parse(resultHeader) as DropboxMetadata;
-      rev = meta.rev;
-      modified = meta.server_modified ? Date.parse(meta.server_modified) || undefined : undefined;
-    }
-    return { data, stat: { rev, modified } };
+    const stat = resultHeader ? toStat(JSON.parse(resultHeader) as DropboxMetadata) : {};
+    return { data, stat };
   },
 
   async save(
@@ -136,27 +144,21 @@ export const dropboxProvider: StorageProvider = {
     // if the file has moved on from that rev instead of forking a
     // "conflicted copy". Without one, plain overwrite.
     const mode = rev ? { '.tag': 'update', update: rev } : 'overwrite';
-    const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
-      method: 'POST',
-      headers: {
-        ...(await auth.authHeader()),
-        'Dropbox-API-Arg': JSON.stringify({ path, mode, mute: true }),
-        'Content-Type': 'application/octet-stream'
-      },
-      body: data
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      if (res.status === 409 && text.includes('conflict')) {
-        throw new StorageConflictError('dropbox');
-      }
-      throw new Error(`Dropbox save failed: ${res.status} ${res.statusText} ${text}`.trim());
+    let res: Response;
+    try {
+      res = await auth.apiFetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          'Dropbox-API-Arg': JSON.stringify({ path, mode, mute: true }),
+          'Content-Type': 'application/octet-stream'
+        },
+        body: data
+      });
+    } catch (e) {
+      if (isApiError(e, 'conflict')) throw new StorageConflictError('dropbox');
+      throw e;
     }
-    const meta = (await res.json()) as DropboxMetadata;
-    return {
-      rev: meta.rev,
-      modified: meta.server_modified ? Date.parse(meta.server_modified) || undefined : undefined
-    };
+    return toStat((await res.json()) as DropboxMetadata);
   },
 
   async remove(path: string): Promise<void> {
@@ -164,18 +166,18 @@ export const dropboxProvider: StorageProvider = {
       await rpc('https://api.dropboxapi.com/2/files/delete_v2', { path });
     } catch (e) {
       // Already gone is fine; anything else propagates.
-      if (!(e instanceof Error && e.message.includes('not_found'))) throw e;
+      if (!isApiError(e, 'not_found')) throw e;
     }
   },
 
   async stat(path: string): Promise<StorageFileStat> {
-    const meta = await rpc<DropboxMetadata>(
-      'https://api.dropboxapi.com/2/files/get_metadata',
-      { path }
-    );
-    return {
-      rev: meta.rev,
-      modified: meta.server_modified ? Date.parse(meta.server_modified) || undefined : undefined
-    };
+    try {
+      return toStat(
+        await rpc<DropboxMetadata>('https://api.dropboxapi.com/2/files/get_metadata', { path })
+      );
+    } catch (e) {
+      if (isApiError(e, 'not_found')) throw new StorageNotFoundError('dropbox');
+      throw e;
+    }
   }
 };

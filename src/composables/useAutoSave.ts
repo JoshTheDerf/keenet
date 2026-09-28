@@ -4,8 +4,8 @@
  * - When `autoSave` is on, changes are persisted after a short debounce, but
  *   only for files that have a real destination (a storage provider + path, or
  *   a File System Access handle). Download-only files are never auto-saved.
- * - When `autoSaveInterval` (minutes) > 0, modified remote files are synced on
- *   that cadence (pull + merge + push).
+ * - When `autoSaveInterval` (minutes) > 0, remote files are synced on that
+ *   cadence: pull + merge, then push only when there are local changes.
  */
 import { watch, onUnmounted } from 'vue';
 import { useVaultStore } from '@/stores/vault';
@@ -15,14 +15,25 @@ import type { KdbxFile } from '@/domain/kdbx-file';
 
 const DEBOUNCE_MS = 2500;
 
-function hasDestination(file: KdbxFile): boolean {
-  if (file.fsHandle) return true;
-  const provider = getProvider(file.storage);
-  return !!(provider && file.path);
+/** Whether the file can be written back without a Save-As / download prompt. */
+export function hasDestination(file: KdbxFile): boolean {
+  return !!file.fsHandle || isRemote(file);
 }
 
 function isRemote(file: KdbxFile): boolean {
   return !!getProvider(file.storage) && !!file.path;
+}
+
+/**
+ * Write a modified file to its destination. Remote files go through the
+ * conflict-safe pull, merge, push path when "sync on save" is on; local files
+ * (and opt-outs) just persist.
+ */
+export function saveToDestination(file: KdbxFile): Promise<boolean> {
+  const vault = useVaultStore();
+  return isRemote(file) && useSettingsStore().syncOnSave
+    ? vault.syncFile(file.id)
+    : vault.persistFile(file.id);
 }
 
 export function useAutoSave(): void {
@@ -39,14 +50,7 @@ export function useAutoSave(): void {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         for (const file of vault.rawFiles()) {
-          if (!file.modified || !hasDestination(file)) continue;
-          // Remote files go through the conflict-safe pull→merge→push path when
-          // "sync on save" is on; local files (and opt-outs) just persist.
-          if (isRemote(file) && settings.syncOnSave) {
-            void vault.syncFile(file.id);
-          } else {
-            void vault.persistFile(file.id);
-          }
+          if (file.modified && hasDestination(file)) void saveToDestination(file);
         }
       }, DEBOUNCE_MS);
     }

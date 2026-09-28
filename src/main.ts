@@ -13,6 +13,7 @@ import { configureDropbox } from '@/storage/dropbox';
 import { configureGDrive } from '@/storage/gdrive';
 import { configureOneDrive } from '@/storage/onedrive';
 import { initDesktop } from '@/desktop/register';
+import { isEmbedded } from '@/integrations/nextcloud';
 import '@/assets/main.css';
 
 async function bootstrap(): Promise<void> {
@@ -72,14 +73,7 @@ async function bootstrap(): Promise<void> {
   // native webview or Tauri desktop shell), and not when embedded in another page (e.g.
   // the Nextcloud app iframe) — a SW there would needlessly cache the host's
   // subpath.
-  const embedded = (() => {
-    try {
-      return window.self !== window.top;
-    } catch {
-      return true;
-    }
-  })();
-  if (!mobile.isMobile() && !window.keeweb && !embedded) {
+  if (!mobile.isMobile() && !window.keeweb && !isEmbedded()) {
     void import('@/pwa').then((p) => p.initPwa());
   }
 }

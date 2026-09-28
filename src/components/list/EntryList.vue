@@ -23,8 +23,14 @@ const emptyMessage = computed(() => {
 
 const countLabel = computed(() => {
   const n = entries.value.length;
-  return `${n} ${n === 1 ? 'entry' : 'entries'}`;
+  return n === 1 ? t('listOneEntry') : t('setFileEntriesCount', n);
 });
+
+// Creating or importing only makes sense when looking at a group or everything;
+// an empty tag, color, expired or trash view just says so.
+const canCreateHere = computed(
+  () => vault.selection.type === 'all' || vault.selection.type === 'group'
+);
 
 function onSelect(id: string): void {
   vault.selectEntry(id);
@@ -169,7 +175,7 @@ function onKeydown(e: KeyboardEvent): void {
       />
 
       <!-- Database open but empty -->
-      <div v-else class="flex flex-wrap items-center justify-center gap-2">
+      <div v-else-if="canCreateHere" class="flex flex-wrap items-center justify-center gap-2">
         <UButton color="primary" icon="i-lucide-plus" :label="t('cmdNewEntry')" @click="newEntry" />
         <UButton
           color="neutral"

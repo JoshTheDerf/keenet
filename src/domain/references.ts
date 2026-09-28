@@ -18,7 +18,7 @@ export interface RefEntry {
   notes: string;
 }
 
-const REF_RE = /\{REF:([TUPANI O])@([TUPANI O]):([^}]+)\}/gi;
+const REF_RE = /\{REF:([TUPANIO])@([TUPANIO]):([^}]+)\}/gi;
 const MAX_DEPTH = 3;
 
 function fieldValue(entry: RefEntry, code: RefFieldCode): string {

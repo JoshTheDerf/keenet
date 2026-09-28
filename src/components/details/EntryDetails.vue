@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import type { DropdownMenuItem } from '@nuxt/ui';
 import { t } from '@/i18n';
 import { useVaultStore } from '@/stores/vault';
+import { useUiStore } from '@/stores/ui';
 import FieldRow from '@/components/details/FieldRow.vue';
 import PasswordField from '@/components/details/PasswordField.vue';
 import TagsField from '@/components/details/TagsField.vue';
@@ -17,8 +18,10 @@ import ExtraUrls from '@/components/details/ExtraUrls.vue';
 import NotesField from '@/components/details/NotesField.vue';
 import AutoTypePanel from '@/components/details/AutoTypePanel.vue';
 import MoveEntryModal from '@/components/details/MoveEntryModal.vue';
+import ConfirmModal from '@/components/shared/ConfirmModal.vue';
 
 const vault = useVaultStore();
+const ui = useUiStore();
 
 const entry = computed(() => vault.selectedEntry);
 const emptyLabel = computed(() =>
@@ -119,13 +122,13 @@ function remove(): void {
     deleteConfirmOpen.value = true;
   } else {
     vault.deleteEntry(e.fileId, e.id);
+    ui.notify(t('detMovedToTrash'), { color: 'info', description: e.title || t('noTitle') });
   }
 }
 
 function confirmDelete(): void {
   const e = entry.value;
   if (e) vault.deleteEntry(e.fileId, e.id);
-  deleteConfirmOpen.value = false;
 }
 </script>
 
@@ -146,57 +149,61 @@ function confirmDelete(): void {
   </div>
 
   <div v-else class="flex flex-col gap-5 p-4 max-w-3xl">
-    <!-- Header -->
-    <div class="flex items-center gap-2">
-      <IconPicker :icon="entry.icon" :color="entry.color" @select="setIcon" />
-      <UInput
-        v-model="title"
-        variant="ghost"
-        size="xl"
-        :placeholder="t('noTitle')"
-        class="flex-1 min-w-0 font-semibold"
-        @blur="commitTitle"
-        @keydown.enter="commitTitle"
-      />
-      <ColorPicker :color="entry.color" @select="setColor" />
+    <!-- Header: icon + title on one line; the actions wrap below on narrow screens -->
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <div class="flex flex-1 basis-64 items-center gap-2 min-w-0">
+        <IconPicker :icon="entry.icon" :color="entry.color" @select="setIcon" />
+        <UInput
+          v-model="title"
+          variant="ghost"
+          size="xl"
+          :placeholder="t('noTitle')"
+          class="flex-1 min-w-0 font-semibold"
+          @blur="commitTitle"
+          @keydown.enter="commitTitle"
+        />
+      </div>
+      <div class="flex items-center gap-1 ml-auto">
+        <ColorPicker :color="entry.color" @select="setColor" />
 
-      <UTooltip v-if="entry.inTrash" :text="t('detRestore')">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-archive-restore"
-          :aria-label="t('detRestore')"
-          @click="restore"
-        />
-      </UTooltip>
+        <UTooltip v-if="entry.inTrash" :text="t('detRestore')">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-archive-restore"
+            :aria-label="t('detRestore')"
+            @click="restore"
+          />
+        </UTooltip>
 
-      <UTooltip :text="t('detClone')">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-copy-plus"
-          :aria-label="t('detClone')"
-          @click="clone"
-        />
-      </UTooltip>
-      <UTooltip v-if="!entry.inTrash" :text="t('detMoveToGroup')">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-folder-input"
-          :aria-label="t('detMoveToGroup')"
-          @click="moveOpen = true"
-        />
-      </UTooltip>
-      <UTooltip :text="entry.inTrash ? t('detDelEntryPerm') : t('detDelEntry')">
-        <UButton
-          color="error"
-          variant="ghost"
-          icon="i-lucide-trash-2"
-          :aria-label="entry.inTrash ? t('detDelEntryPerm') : t('detDelEntry')"
-          @click="remove"
-        />
-      </UTooltip>
+        <UTooltip :text="t('detClone')">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-copy-plus"
+            :aria-label="t('detClone')"
+            @click="clone"
+          />
+        </UTooltip>
+        <UTooltip v-if="!entry.inTrash" :text="t('detMoveToGroup')">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-folder-input"
+            :aria-label="t('detMoveToGroup')"
+            @click="moveOpen = true"
+          />
+        </UTooltip>
+        <UTooltip :text="entry.inTrash ? t('detDelEntryPerm') : t('detDelEntry')">
+          <UButton
+            color="error"
+            variant="ghost"
+            icon="i-lucide-trash-2"
+            :aria-label="entry.inTrash ? t('detDelEntryPerm') : t('detDelEntry')"
+            @click="remove"
+          />
+        </UTooltip>
+      </div>
     </div>
 
     <FieldRow
@@ -204,8 +211,6 @@ function confirmDelete(): void {
       :model-value="entry.username"
       :file-id="entry.fileId"
       icon="i-lucide-user"
-      copyable
-      :copy-label="t('user')"
       @commit="(v) => onField('UserName', v)"
     />
 
@@ -221,8 +226,6 @@ function confirmDelete(): void {
       :model-value="entry.url"
       :file-id="entry.fileId"
       icon="i-lucide-globe"
-      copyable
-      :copy-label="t('website')"
       @commit="(v) => onField('URL', v)"
     >
       <template #actions>
@@ -302,21 +305,12 @@ function confirmDelete(): void {
     />
 
     <!-- Confirm permanent deletion (entry already in trash) -->
-    <UModal v-model:open="deleteConfirmOpen" :title="t('detDelFromTrash')">
-      <template #body>
-        <p class="text-sm text-muted">{{ t('detDelFromTrashBody') }}</p>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            :label="t('alertCancel')"
-            @click="deleteConfirmOpen = false"
-          />
-          <UButton color="error" :label="t('detDelEntryPerm')" @click="confirmDelete" />
-        </div>
-      </template>
-    </UModal>
+    <ConfirmModal
+      v-model:open="deleteConfirmOpen"
+      :title="t('detDelFromTrash')"
+      :description="t('detDelFromTrashBody')"
+      :confirm-label="t('detDelEntryPerm')"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>

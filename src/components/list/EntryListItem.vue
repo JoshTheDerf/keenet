@@ -3,6 +3,7 @@ import { computed, useTemplateRef } from 'vue';
 import EntryIcon from '@/components/shared/EntryIcon.vue';
 import ColorDot from '@/components/shared/ColorDot.vue';
 import { t } from '@/i18n';
+import { hostOf } from '@/components/shared/format';
 import type { EntryVm } from '@/types';
 
 const props = withDefaults(
@@ -12,19 +13,6 @@ const props = withDefaults(
 
 const emit = defineEmits<{ select: [id: string] }>();
 
-function hostOf(url: string): string {
-  if (!url) return '';
-  try {
-    return new URL(url).host;
-  } catch {
-    try {
-      return new URL(`https://${url}`).host;
-    } catch {
-      return url;
-    }
-  }
-}
-
 const host = computed(() => hostOf(props.entry.url));
 
 const description = computed(() => {
@@ -32,13 +20,11 @@ const description = computed(() => {
   return parts.join(' · ');
 });
 
-function formatDate(ms: number): string {
-  if (!ms) return '';
-  const fmt = new Intl.DateTimeFormat(undefined, { dateStyle: 'short' });
-  return fmt.format(new Date(ms));
-}
+const dateFmt = new Intl.DateTimeFormat(undefined, { dateStyle: 'short' });
 
-const updatedLabel = computed(() => formatDate(props.entry.updated));
+const updatedLabel = computed(() =>
+  props.entry.updated ? dateFmt.format(new Date(props.entry.updated)) : ''
+);
 
 function onSelect(): void {
   emit('select', props.entry.id);

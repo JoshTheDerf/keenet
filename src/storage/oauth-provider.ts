@@ -52,6 +52,11 @@ export interface OAuthProviderAuth {
   logout(): void;
 }
 
+/** Epoch ms from an ISO timestamp returned by a provider API, if parseable. */
+export function parseTimestamp(iso: string | undefined): number | undefined {
+  return iso ? Date.parse(iso) || undefined : undefined;
+}
+
 /** HTTP status attached to errors thrown by {@link OAuthProviderAuth.apiFetch}. */
 export function statusOf(e: unknown): number | undefined {
   return typeof e === 'object' && e && 'status' in e ? (e as { status?: number }).status : undefined;
@@ -78,7 +83,10 @@ export function createOAuthProviderAuth(options: OAuthProviderOptions): OAuthPro
 
     async apiFetch(url: string, init?: RequestInit): Promise<Response> {
       const headers = { ...(await authHeader()), ...(init?.headers ?? {}) };
-      const res = await fetch(url, { ...init, headers });
+      // Never serve file bytes or revision metadata from the HTTP cache: a
+      // stale copy would be merged and its stale rev used for the conditional
+      // write (same failure mode as the WebDAV fix).
+      const res = await fetch(url, { cache: 'no-store', ...init, headers });
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         throw Object.assign(

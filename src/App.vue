@@ -18,7 +18,7 @@ useTheme();
     </div>
 
     <!-- Toasts -->
-    <div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-80">
+    <div class="fixed inset-x-4 bottom-4 z-50 flex flex-col gap-2 sm:left-auto sm:w-80">
       <UAlert
         v-for="toast in ui.toasts"
         :key="toast.id"

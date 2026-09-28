@@ -1,0 +1,28 @@
+# Embeddable in an <iframe> on thederf.com.
+#
+# thederf.com serves its pages with Cross-Origin-Embedder-Policy:
+# credentialless (the uapp editor needs SharedArrayBuffer, hence cross-origin
+# isolation). A frame inside such a page has to clear TWO checks, and this app
+# is on another origin, so it needs both headers:
+#
+#   COEP - inherited by nested documents: a frame whose response carries no
+#          COEP of its own is blocked. (Not origin-scoped: same-origin frames
+#          on thederf.com need it too.)
+#   CORP - COEP defaults Cross-Origin-Resource-Policy to same-origin, so a
+#          CROSS-origin frame is then blocked as
+#          "CorpNotSameOriginAfterDefaultedToSameOriginByCoep" even with COEP
+#          set. Same-origin apps under thederf.com/ do not need this line.
+#
+# The alternative — the <iframe credentialless> attribute on thederf.com's
+# side — also loads the page and needs neither header, but gives it a fresh
+# ephemeral storage partition with no cookies, so this app would come up with
+# none of the user's data.
+#
+# CORP: cross-origin lets any site embed this as a resource. That is already
+# true today (no X-Frame-Options and no CSP frame-ancestors are set), so this
+# is not a change in exposure — but adding
+# `Content-Security-Policy: frame-ancestors 'self' https://thederf.com`
+# is how it would be locked down to thederf.com only.
+/*
+  Cross-Origin-Embedder-Policy: credentialless
+  Cross-Origin-Resource-Policy: cross-origin
