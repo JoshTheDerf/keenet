@@ -53,7 +53,7 @@ export async function loadStartupConfig(): Promise<StartupFile | null> {
   if (!param) return null;
 
   const configUrl = new URL(param, window.location.href).toString();
-  const res = await fetch(configUrl, { credentials: 'include' });
+  const res = await fetch(configUrl, { credentials: 'include', cache: 'no-store' });
   if (!res.ok) throw new Error(`Config request failed (${res.status})`);
   const cfg = (await res.json()) as StartupConfig;
 
@@ -61,7 +61,7 @@ export async function loadStartupConfig(): Promise<StartupFile | null> {
   if (!entry?.path) return null;
 
   const fileUrl = new URL(entry.path, window.location.href).toString();
-  const dataRes = await fetch(fileUrl, { credentials: 'include' });
+  const dataRes = await fetch(fileUrl, { credentials: 'include', cache: 'no-store' });
   if (!dataRes.ok) throw new Error(`Could not load file (${dataRes.status})`);
   const data = await dataRes.arrayBuffer();
 

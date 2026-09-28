@@ -50,7 +50,10 @@ export const webdavProvider: StorageProvider = {
 
   async load(path: string, config?: Record<string, string>): Promise<StorageLoadResult> {
     const url = fullUrl(path, config);
-    const res = await fetch(url, { headers: { ...authHeader(config) } });
+    // Bypass the HTTP cache: servers like Nextcloud send Last-Modified without
+    // Cache-Control, so the browser heuristically caches the GET and a later
+    // sync would merge a stale copy and send its stale ETag as If-Match (412).
+    const res = await fetch(url, { headers: { ...authHeader(config) }, cache: 'no-store' });
     if (res.status === 404) throw new StorageNotFoundError('webdav');
     if (!res.ok) throw new Error(`WebDAV load failed: ${res.status} ${res.statusText}`);
     const data = await res.arrayBuffer();
@@ -86,12 +89,17 @@ export const webdavProvider: StorageProvider = {
     }
     if (res.status === 412) throw new StorageConflictError('webdav');
     if (!res.ok) throw new Error(`WebDAV save failed: ${res.status} ${res.statusText}`);
-    return { rev: res.headers.get('etag') ?? undefined };
+    // Nextcloud omits ETag on 201 Created but always sends OC-ETag.
+    return { rev: res.headers.get('etag') ?? res.headers.get('oc-etag') ?? undefined };
   },
 
   async stat(path: string, config?: Record<string, string>): Promise<StorageFileStat> {
     const url = fullUrl(path, config);
-    const res = await fetch(url, { method: 'HEAD', headers: { ...authHeader(config) } });
+    const res = await fetch(url, {
+      method: 'HEAD',
+      headers: { ...authHeader(config) },
+      cache: 'no-store'
+    });
     if (res.status === 404) throw new StorageNotFoundError('webdav');
     if (!res.ok) throw new Error(`WebDAV stat failed: ${res.status}`);
     return {
