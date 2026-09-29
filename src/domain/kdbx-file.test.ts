@@ -95,6 +95,35 @@ describe('KdbxFile lifecycle', () => {
     expect(file.getGroupTree().children.some((g) => g.isRecycleBin)).toBe(true);
   });
 
+  it('restores a trashed entry to its original group (undo)', async () => {
+    const file = await KdbxFile.create({ name: 'Undo', password: 'p' });
+    const gid = file.createGroup(file.getGroupTree().id, 'Work').uuid.id;
+    const id = file.createEntry(gid).uuid.id;
+    expect(file.deleteEntry(id)).toBe(true);
+    file.restoreEntry(id);
+    expect(file.getEntry(id)?.parentGroup?.uuid.id).toBe(gid);
+    expect(file.getAllEntries(false).some((e) => e.id === id)).toBe(true);
+  });
+
+  it('leaves trashed entries out of the parent group total', async () => {
+    const file = await KdbxFile.create({ name: 'Counts', password: 'p' });
+    const before = file.getGroupTree().totalEntryCount;
+    const id = file.createEntry(file.getGroupTree().id).uuid.id;
+    expect(file.getGroupTree().totalEntryCount).toBe(before + 1);
+    file.deleteEntry(id);
+    const tree = file.getGroupTree();
+    expect(tree.totalEntryCount).toBe(before);
+    expect(tree.children.find((g) => g.isRecycleBin)?.totalEntryCount).toBe(1);
+  });
+
+  it('reports a permanent delete when the recycle bin is off', async () => {
+    const file = await KdbxFile.create({ name: 'NoBin', password: 'p' });
+    file.setRecycleBinEnabled(false);
+    const id = file.createEntry(file.getGroupTree().id).uuid.id;
+    expect(file.deleteEntry(id)).toBe(false);
+    expect(file.getEntry(id)).toBeUndefined();
+  });
+
   it('creates nested groups and counts entries', async () => {
     const file = await KdbxFile.create({ name: 'Groups', password: 'p' });
     const rootId = file.getGroupTree().id;

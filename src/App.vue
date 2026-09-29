@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { useUiStore } from '@/stores/ui';
+import type { ButtonProps } from '@nuxt/ui';
+import { useUiStore, type Toast } from '@/stores/ui';
 import { useTheme } from '@/composables/useTheme';
 import OpenScreen from '@/components/open/OpenScreen.vue';
 import AppShell from '@/components/layout/AppShell.vue';
@@ -7,6 +8,23 @@ import SettingsScreen from '@/components/settings/SettingsScreen.vue';
 
 const ui = useUiStore();
 useTheme();
+
+function toastActions(toast: Toast): ButtonProps[] | undefined {
+  const action = toast.action;
+  if (!action) return undefined;
+  return [
+    {
+      label: action.label,
+      color: 'neutral',
+      variant: 'outline',
+      size: 'xs',
+      onClick: () => {
+        ui.dismiss(toast.id);
+        action.onClick();
+      }
+    }
+  ];
+}
 </script>
 
 <template>
@@ -25,6 +43,7 @@ useTheme();
         :title="toast.title"
         :description="toast.description"
         :color="toast.color ?? 'info'"
+        :actions="toastActions(toast)"
         variant="subtle"
         close
         @update:open="ui.dismiss(toast.id)"

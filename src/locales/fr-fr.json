@@ -1031,5 +1031,8 @@
   "appUpdateReadyBody": "Enregistrez vos modifications et KeeNet se rechargera avec la nouvelle version.",
   "authSignInCancelled": "Connexion annulée",
   "mobileBiometricReason": "Déverrouiller votre base de données",
-  "mobileBiometricSubtitle": "Confirmez votre identité pour déverrouiller"
+  "mobileBiometricSubtitle": "Confirmez votre identité pour déverrouiller",
+  "detUndo": "Annuler",
+  "detDeleted": "Supprimé",
+  "detDelNoTrash": "Supprimer cette entrée ?"
 }

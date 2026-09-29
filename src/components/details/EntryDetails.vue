@@ -114,16 +114,39 @@ const moveOpen = ref(false);
 
 const deleteConfirmOpen = ref(false);
 
+// Without a recycle bin (already in it, or turned off for this database) a
+// delete is permanent, so it gets a confirmation instead of an Undo.
+const deleteIsPermanent = computed(() => {
+  const e = entry.value;
+  if (!e) return false;
+  return e.inTrash || vault.findFile(e.fileId)?.recycleBinEnabled === false;
+});
+
 function remove(): void {
+  if (!entry.value) return;
+  if (deleteIsPermanent.value) deleteConfirmOpen.value = true;
+  else trash();
+}
+
+function trash(): void {
   const e = entry.value;
   if (!e) return;
-  if (e.inTrash) {
-    // Deleting from the trash is permanent — ask first.
-    deleteConfirmOpen.value = true;
-  } else {
-    vault.deleteEntry(e.fileId, e.id);
-    ui.notify(t('detMovedToTrash'), { color: 'info', description: e.title || t('noTitle') });
+  const { fileId, id } = e;
+  if (!vault.deleteEntry(fileId, id)) {
+    ui.notify(t('detDeleted'), { color: 'info', description: e.title || t('noTitle') });
+    return;
   }
+  ui.notify(t('detMovedToTrash'), {
+    color: 'info',
+    description: e.title || t('noTitle'),
+    action: {
+      label: t('detUndo'),
+      onClick: () => {
+        vault.restoreEntry(fileId, id);
+        vault.selectEntry(id);
+      }
+    }
+  });
 }
 
 function confirmDelete(): void {
@@ -194,12 +217,12 @@ function confirmDelete(): void {
             @click="moveOpen = true"
           />
         </UTooltip>
-        <UTooltip :text="entry.inTrash ? t('detDelEntryPerm') : t('detDelEntry')">
+        <UTooltip :text="deleteIsPermanent ? t('detDelEntryPerm') : t('detDelEntry')">
           <UButton
             color="error"
             variant="ghost"
             icon="i-lucide-trash-2"
-            :aria-label="entry.inTrash ? t('detDelEntryPerm') : t('detDelEntry')"
+            :aria-label="deleteIsPermanent ? t('detDelEntryPerm') : t('detDelEntry')"
             @click="remove"
           />
         </UTooltip>
@@ -304,10 +327,10 @@ function confirmDelete(): void {
       :length="entry.historyLength"
     />
 
-    <!-- Confirm permanent deletion (entry already in trash) -->
+    <!-- Confirm permanent deletion (entry already in trash, or no recycle bin) -->
     <ConfirmModal
       v-model:open="deleteConfirmOpen"
-      :title="t('detDelFromTrash')"
+      :title="entry.inTrash ? t('detDelFromTrash') : t('detDelNoTrash')"
       :description="t('detDelFromTrashBody')"
       :confirm-label="t('detDelEntryPerm')"
       @confirm="confirmDelete"

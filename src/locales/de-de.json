@@ -1031,5 +1031,8 @@
   "appUpdateReadyBody": "Speichern Sie Ihre Änderungen, dann lädt KeeNet die neue Version.",
   "authSignInCancelled": "Anmeldung abgebrochen",
   "mobileBiometricReason": "Datenbank entsperren",
-  "mobileBiometricSubtitle": "Bestätigen Sie Ihre Identität zum Entsperren"
+  "mobileBiometricSubtitle": "Bestätigen Sie Ihre Identität zum Entsperren",
+  "detUndo": "Rückgängig",
+  "detDeleted": "Gelöscht",
+  "detDelNoTrash": "Diesen Eintrag löschen?"
 }

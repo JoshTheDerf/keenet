@@ -421,12 +421,14 @@ export class KdbxFile {
     this.markModified();
   }
 
-  deleteEntry(id: string): void {
+  /** Returns true when the entry went to the recycle bin (so it can be restored). */
+  deleteEntry(id: string): boolean {
     const entry = this.getEntry(id);
-    if (!entry) return;
+    if (!entry) return false;
     this.removeObject(entry, this.isInTrash(entry));
     this.reindex();
     this.markModified();
+    return this.isInTrash(entry);
   }
 
   deleteGroup(id: string): void {
@@ -892,7 +894,8 @@ export class KdbxFile {
     const id = uuidStr(group.uuid);
     const children = group.groups.map((g) => this.groupToVm(g));
     let total = group.entries.length;
-    for (const c of children) total += c.totalEntryCount;
+    // Trashed entries don't count toward the group that holds the bin.
+    for (const c of children) if (!c.isRecycleBin) total += c.totalEntryCount;
     return {
       id,
       fileId: this.id,

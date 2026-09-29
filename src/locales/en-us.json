@@ -1031,5 +1031,8 @@
   "appUpdateReadyBody": "Save your changes and KeeNet will reload with the new version.",
   "authSignInCancelled": "Sign-in was cancelled",
   "mobileBiometricReason": "Unlock your database",
-  "mobileBiometricSubtitle": "Confirm it's you to unlock"
+  "mobileBiometricSubtitle": "Confirm it's you to unlock",
+  "detUndo": "Undo",
+  "detDeleted": "Deleted",
+  "detDelNoTrash": "Delete this entry?"
 }

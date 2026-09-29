@@ -8,6 +8,8 @@ export interface Toast {
   title: string;
   description?: string;
   color?: 'success' | 'error' | 'warning' | 'info';
+  /** A single button on the toast (e.g. Undo). Clicking it also dismisses the toast. */
+  action?: { label: string; onClick: () => void };
 }
 
 let toastSeq = 0;
@@ -37,7 +39,8 @@ export const useUiStore = defineStore('ui', () => {
   function notify(title: string, opts: Partial<Omit<Toast, 'id' | 'title'>> = {}): void {
     const toast: Toast = { id: ++toastSeq, title, ...opts };
     toasts.value.push(toast);
-    setTimeout(() => dismiss(toast.id), 4000);
+    // Give the user a bit longer when there's something to click.
+    setTimeout(() => dismiss(toast.id), toast.action ? 8000 : 4000);
   }
 
   function dismiss(id: number): void {

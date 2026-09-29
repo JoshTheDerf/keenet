@@ -487,9 +487,11 @@ export const useVaultStore = defineStore('vault', () => {
     withFile(fileId, (f) => f.setEntryExpiry(entryId, expires));
   }
 
-  function deleteEntry(fileId: string, entryId: string): void {
-    withFile(fileId, (f) => f.deleteEntry(entryId));
+  /** Returns true when the entry went to the recycle bin (so it can be restored). */
+  function deleteEntry(fileId: string, entryId: string): boolean {
+    const trashed = withFile(fileId, (f) => f.deleteEntry(entryId)) ?? false;
     if (selectedEntryId.value === entryId) selectedEntryId.value = null;
+    return trashed;
   }
 
   function cloneEntry(fileId: string, entryId: string): void {
