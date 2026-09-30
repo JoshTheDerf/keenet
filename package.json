@@ -1,6 +1,6 @@
 {
   "name": "keenet",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "KeeNet — free cross-platform password manager compatible with KeePass (Vue 3 rebuild, based on KeeWeb)",
   "type": "module",
   "private": true,

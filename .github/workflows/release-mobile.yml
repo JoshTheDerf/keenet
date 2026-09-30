@@ -59,6 +59,17 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      # `cap add` writes versionCode 1 / versionName "1.0". Use package.json's
+      # version instead, with versionCode as major*10000 + minor*100 + patch so
+      # every release installs as an upgrade.
+      - name: Set app version
+        run: |
+          V=$(node -p "require('./package.json').version")
+          IFS=. read -r MA MI PA <<< "$V"
+          CODE=$((MA * 10000 + MI * 100 + PA))
+          sed -i -E "s/versionCode [0-9]+/versionCode $CODE/; s/versionName \"[^\"]*\"/versionName \"$V\"/" android/app/build.gradle
+          grep -E 'versionCode|versionName' android/app/build.gradle
+
       # Replace Capacitor's placeholder icons with ours (from resources/).
       - name: Generate app icons & splash
         run: |
