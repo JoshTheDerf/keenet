@@ -1102,5 +1102,11 @@
   "detOtherWebsites": "Autres sites web",
   "detAddCustomField": "Champ personnalisé",
   "detAddAttachmentItem": "Pièce jointe",
-  "detHistoryItem": "Historique"
+  "detHistoryItem": "Historique",
+  "detDone": "Terminé",
+  "mobileNavPasswords": "Mots de passe",
+  "mobileNavCodes": "Codes",
+  "mobileNavGenerator": "Générateur",
+  "detOpenEntry": "Ouvrir l'entrée",
+  "mobileNavLabel": "Sections"
 }

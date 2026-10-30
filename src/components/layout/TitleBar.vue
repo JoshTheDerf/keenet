@@ -210,6 +210,7 @@ const overflowItems = computed<DropdownMenuItem[]>(() => [
           size="sm"
           :loading="saving"
           :disabled="!hasModified || saving"
+          :class="hasModified ? '' : 'max-md:hidden'"
           :aria-label="t('setFileSave')"
           @click="onSave"
         />
@@ -243,6 +244,7 @@ const overflowItems = computed<DropdownMenuItem[]>(() => [
           color="neutral"
           variant="ghost"
           size="sm"
+          class="max-md:hidden"
           :aria-label="t('settings')"
           @click="onSettings"
         />

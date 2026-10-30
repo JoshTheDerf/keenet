@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed, watch, nextTick, useTemplateRef, onBeforeUpdate } from 'vue';
+import { ref, computed, watch, nextTick, useTemplateRef, onBeforeUpdate } from 'vue';
 import EntryListItem from '@/components/list/EntryListItem.vue';
 import OtpCodesList from '@/components/otp/OtpCodesList.vue';
 import { useVaultStore } from '@/stores/vault';
 import { useSettingsStore } from '@/stores/settings';
 import { useUiStore } from '@/stores/ui';
 import { useOverlays } from '@/composables/useOverlays';
+import { useOtpActions } from '@/composables/useOtp';
+import { useClipboard } from '@/composables/useClipboard';
+import type { ContextMenuItem } from '@nuxt/ui';
+import type { EntryVm } from '@/types';
 import { t } from '@/i18n';
 
 const vault = useVaultStore();
@@ -34,8 +38,45 @@ const canCreateHere = computed(
 );
 
 function onSelect(id: string): void {
+  if (suppressSelect) return;
   vault.selectEntry(id);
 }
+
+// ---- quick actions: long-press (touch) or right-click on a row ------------
+
+const { copy } = useClipboard();
+const { copyOtp } = useOtpActions();
+const ctxEntry = ref<EntryVm | null>(null);
+/** a long-press ends in a tap; that tap must not also open the entry */
+let suppressSelect = false;
+
+function pickTarget(e: Event): void {
+  const id = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-entry-id]')?.dataset.entryId;
+  ctxEntry.value = (id && entries.value.find((x) => x.id === id)) || null;
+}
+
+function onCtxOpen(open: boolean): void {
+  if (!open) return;
+  suppressSelect = true;
+  setTimeout(() => (suppressSelect = false), 700);
+}
+
+const ctxItems = computed<ContextMenuItem[][]>(() => {
+  const e = ctxEntry.value;
+  if (!e) return [];
+  const resolve = (v: string) => vault.resolveReference(e.fileId, v);
+  const copyItems: ContextMenuItem[] = [];
+  if (e.username) copyItems.push({ label: t('detCopyField', t('user')), icon: 'i-lucide-user', onSelect: () => copy(resolve(e.username), t('user')) });
+  if (e.password) copyItems.push({ label: t('detCopyField', t('password')), icon: 'i-lucide-key-round', onSelect: () => copy(resolve(e.password), t('password'), { sensitive: true }) });
+  if (e.otp) copyItems.push({ label: t('detMenuCopyOtp'), icon: 'i-lucide-timer', onSelect: () => copyOtp(e) });
+  const other: ContextMenuItem[] = [];
+  if (e.url) {
+    const url = resolve(e.url);
+    other.push({ label: t('detOpenWebsite'), icon: 'i-lucide-external-link', onSelect: () => window.open(/^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`, '_blank', 'noopener,noreferrer') });
+  }
+  other.push({ label: t('detOpenEntry'), icon: 'i-lucide-square-pen', onSelect: () => vault.selectEntry(e.id) });
+  return [copyItems, other].filter((g) => g.length);
+});
 
 // ---- empty-state actions ---------------------------------------------------
 
@@ -135,22 +176,25 @@ function onKeydown(e: KeyboardEvent): void {
       <span role="columnheader">{{ t('searchUpdated') }}</span>
     </div>
 
-    <!-- Entries -->
-    <div
-      v-if="entries.length"
-      class="flex-1 min-h-0 overflow-y-auto"
-      :role="settings.tableView ? 'table' : 'listbox'"
-    >
-      <EntryListItem
-        v-for="entry in entries"
-        :key="entry.id"
-        :ref="(el) => setItemRef(entry.id, el)"
-        :entry="entry"
-        :selected="entry.id === vault.selectedEntryId"
-        :table="settings.tableView"
-        @select="onSelect"
-      />
-    </div>
+    <!-- Entries (long-press or right-click a row for quick actions) -->
+    <UContextMenu v-if="entries.length" :items="ctxItems" :disabled="!ctxEntry" @update:open="onCtxOpen">
+      <div
+        class="flex-1 min-h-0 overflow-y-auto max-md:pb-24"
+        :role="settings.tableView ? 'table' : 'listbox'"
+        @pointerdown.capture="pickTarget"
+        @contextmenu.capture="pickTarget"
+      >
+        <EntryListItem
+          v-for="entry in entries"
+          :key="entry.id"
+          :ref="(el) => setItemRef(entry.id, el)"
+          :entry="entry"
+          :selected="entry.id === vault.selectedEntryId"
+          :table="settings.tableView"
+          @select="onSelect"
+        />
+      </div>
+    </UContextMenu>
 
     <!-- Empty state -->
     <div v-else class="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 // Every one-time code at a glance, like an authenticator app: tap a row to
 // copy its code; the arrow opens the entry.
-import { ref } from 'vue';
 import { t } from '@/i18n';
 import { useVaultStore } from '@/stores/vault';
 import { useOverlays } from '@/composables/useOverlays';
@@ -10,8 +9,7 @@ import OtpCodeRow from '@/components/otp/OtpCodeRow.vue';
 import OtpSetupModal from '@/components/otp/OtpSetupModal.vue';
 
 const vault = useVaultStore();
-const { importOpen, importMode } = useOverlays();
-const setupOpen = ref(false);
+const { importOpen, importMode, otpSetupOpen: setupOpen } = useOverlays();
 
 function openImport(): void {
   importMode.value = 'otp';
@@ -34,7 +32,7 @@ function onSetup(tokens: ImportedToken[]): void {
       <UButton size="xs" color="primary" variant="soft" icon="i-lucide-scan-line" :label="t('otpAddShort')" data-testid="otp-scan" @click="setupOpen = true" />
     </div>
 
-    <ul v-if="vault.list.length" class="flex-1 min-h-0 overflow-y-auto" :aria-label="t('otpCodes')">
+    <ul v-if="vault.list.length" class="flex-1 min-h-0 overflow-y-auto max-md:pb-24" :aria-label="t('otpCodes')">
       <OtpCodeRow v-for="entry in vault.list" :key="entry.id" :entry="entry" />
     </ul>
 

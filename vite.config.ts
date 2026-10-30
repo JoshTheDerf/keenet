@@ -106,6 +106,20 @@ export default defineConfig(({ mode }) => {
         textarea: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes }, compoundVariants: touchInputIcons },
         select: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes }, compoundVariants: touchInputIcons },
         selectMenu: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes }, compoundVariants: touchInputIcons },
+        // Phones: dialogs are bottom sheets — in thumb reach, sliding up from the
+        // bottom edge, clear of the home indicator.
+        modal: {
+          compoundVariants: [
+            {
+              scrollable: false,
+              fullscreen: false,
+              class: {
+                content:
+                  'max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:max-h-[92dvh] max-sm:pb-[env(safe-area-inset-bottom)] max-sm:data-[state=open]:animate-[slide-in-from-bottom_200ms_ease-out] max-sm:data-[state=closed]:animate-[slide-out-to-bottom_200ms_ease-in]'
+              }
+            }
+          ]
+        },
         checkbox: { defaultVariants: { size: 'lg' } },
         radioGroup: { defaultVariants: { size: 'lg' } },
         switch: { defaultVariants: { size: 'lg' } },

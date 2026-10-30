@@ -20,6 +20,9 @@ import AutoTypePanel from '@/components/details/AutoTypePanel.vue';
 import MoveEntryModal from '@/components/details/MoveEntryModal.vue';
 import ConfirmModal from '@/components/shared/ConfirmModal.vue';
 import { isDesktop } from '@/composables/useDesktop';
+import { useMediaQuery } from '@vueuse/core';
+import EntryIcon from '@/components/shared/EntryIcon.vue';
+import EntryReadView from '@/components/details/read/EntryReadView.vue';
 
 const vault = useVaultStore();
 const ui = useUiStore();
@@ -61,6 +64,21 @@ function restore(): void {
 }
 
 const desktopApp = isDesktop();
+
+// Touchscreens open an entry to read and copy; the form is one tap away.
+// A blank (new) entry opens straight in the form.
+const touch = useMediaQuery('(pointer: coarse)');
+const blank = (() => {
+  const e = vault.selectedEntry;
+  return !!e && !e.title && !e.username && !e.password && !e.url && !e.notes;
+})();
+const editing = ref(blank);
+const readMode = computed(() => touch.value && !editing.value);
+
+function doneEditing(): void {
+  commitTitle();
+  editing.value = false;
+}
 
 // ---- optional sections: shown when they have content, or once asked for ----
 const shown = reactive({ otp: false, urls: false, tags: false, fields: false, expiry: false });
@@ -113,9 +131,14 @@ const moreItems = computed<DropdownMenuItem[]>(() => {
   const e = entry.value;
   if (!e) return [];
   return [
+    ...(touch.value && e.inTrash ? [{ label: t('detRestore'), icon: 'i-lucide-archive-restore', onSelect: restore }] : []),
     { label: t('detClone'), icon: 'i-lucide-copy-plus', onSelect: clone },
     ...(!e.inTrash ? [{ label: t('detMoveToGroup'), icon: 'i-lucide-folder-input', onSelect: () => (moveOpen.value = true) }] : []),
     ...(e.historyLength ? [{ label: `${t('detHistoryItem')} (${e.historyLength})`, icon: 'i-lucide-history', onSelect: () => (showHistory.value = true) }] : [])
+    ,
+    ...(touch.value
+      ? [{ label: deleteIsPermanent.value ? t('detDelEntryPerm') : t('detDelEntry'), icon: 'i-lucide-trash-2', color: 'error' as const, onSelect: remove }]
+      : [])
   ];
 });
 
@@ -245,8 +268,14 @@ function confirmDelete(): void {
         data-testid="details-back"
         @click="vault.selectEntry(null)"
       />
-      <IconPicker :icon="entry.icon" :color="entry.color" @select="setIcon" />
+      <template v-if="readMode">
+        <EntryIcon :icon="entry.icon" :color="entry.color" size="1.5rem" class="mx-1.5" />
+        <h1 class="flex-1 min-w-0 truncate text-lg font-semibold text-highlighted">{{ entry.title || t('noTitle') }}</h1>
+        <UButton color="primary" variant="soft" icon="i-lucide-pencil" :label="t('edit')" data-testid="edit-entry" @click="editing = true" />
+      </template>
+      <IconPicker v-if="!readMode" :icon="entry.icon" :color="entry.color" @select="setIcon" />
       <UInput
+        v-if="!readMode"
         v-model="title"
         variant="ghost"
         size="xl"
@@ -255,7 +284,8 @@ function confirmDelete(): void {
         @blur="commitTitle"
         @keydown.enter="commitTitle"
       />
-      <ColorPicker :color="entry.color" @select="setColor" />
+      <ColorPicker v-if="!readMode" :color="entry.color" @select="setColor" />
+      <template v-if="!touch">
       <UTooltip v-if="entry.inTrash" :text="t('detRestore')">
         <UButton
           color="neutral"
@@ -274,11 +304,23 @@ function confirmDelete(): void {
           @click="remove"
         />
       </UTooltip>
+      </template>
+      <UButton
+        v-if="touch && editing"
+        color="primary"
+        icon="i-lucide-check"
+        :label="t('detDone')"
+        data-testid="done-editing"
+        @click="doneEditing"
+      />
       <UDropdownMenu :items="moreItems" :content="{ align: 'end' }">
         <UButton color="neutral" variant="ghost" icon="i-lucide-ellipsis-vertical" :aria-label="t('options')" />
       </UDropdownMenu>
     </div>
 
+    <EntryReadView v-if="readMode" :entry="entry" />
+
+    <template v-else>
     <FieldRow
       :label="t('user')"
       :model-value="entry.username"
@@ -365,6 +407,8 @@ function confirmDelete(): void {
       </UDropdownMenu>
       <input ref="attachInput" type="file" multiple class="hidden" @change="onAttach" />
     </div>
+
+    </template>
 
     <USeparator />
 

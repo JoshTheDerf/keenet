@@ -1102,5 +1102,11 @@
   "detOtherWebsites": "Weitere Websites",
   "detAddCustomField": "Benutzerdefiniertes Feld",
   "detAddAttachmentItem": "Anhang",
-  "detHistoryItem": "Verlauf"
+  "detHistoryItem": "Verlauf",
+  "detDone": "Fertig",
+  "mobileNavPasswords": "Passwörter",
+  "mobileNavCodes": "Codes",
+  "mobileNavGenerator": "Generator",
+  "detOpenEntry": "Eintrag öffnen",
+  "mobileNavLabel": "Bereiche"
 }

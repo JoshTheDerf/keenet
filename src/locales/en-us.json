@@ -1102,5 +1102,11 @@
   "detOtherWebsites": "Other websites",
   "detAddCustomField": "Custom field",
   "detAddAttachmentItem": "Attachment",
-  "detHistoryItem": "History"
+  "detHistoryItem": "History",
+  "detDone": "Done",
+  "mobileNavPasswords": "Passwords",
+  "mobileNavCodes": "Codes",
+  "mobileNavGenerator": "Generator",
+  "detOpenEntry": "Open entry",
+  "mobileNavLabel": "Sections"
 }

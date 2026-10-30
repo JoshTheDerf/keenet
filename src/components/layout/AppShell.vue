@@ -17,6 +17,8 @@ import { useOtpActions } from '@/composables/useOtp';
 import { useAutoSave } from '@/composables/useAutoSave';
 import { useLock } from '@/composables/useLock';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
+import { useBackLayer } from '@/composables/useBackNavigation';
+import MobileNav from '@/components/layout/MobileNav.vue';
 
 const vault = useVaultStore();
 const { copy } = useClipboard();
@@ -30,6 +32,13 @@ useKeyboardShortcuts();
 // whether an entry is selected.
 const isMobile = useMediaQuery('(max-width: 767px)');
 const menuOpen = ref(false);
+
+// On phones the entry and the drawer each cover the list: system back closes them
+useBackLayer(() => menuOpen.value, () => (menuOpen.value = false));
+useBackLayer(
+  () => isMobile.value && !!vault.selectedEntryId,
+  () => vault.selectEntry(null)
+);
 const drawer = useTemplateRef<HTMLElement>('drawer');
 
 // Focus the drawer when it opens so Escape works and screen readers land in it.
@@ -120,6 +129,9 @@ onUnmounted(() => unsubAutoType?.());
         <EntryDetails :key="vault.selectedEntryId ?? 'none'" />
       </section>
     </div>
+
+    <!-- Phones: places + floating action along the bottom (the open entry is full-screen) -->
+    <MobileNav v-if="isMobile && showListMobile" />
 
     <!-- Ctrl/Cmd+K command palette -->
     <CommandPalette />

@@ -175,12 +175,12 @@ export async function initMobile(): Promise<void> {
     /* status bar not available on this platform */
   }
 
-  // Android hardware back button: leave details → list, else send to background.
+  // Android back button: close the top dialog / drawer / entry / settings
+  // (see useBackNavigation); with nothing open, send the app to the background.
   const { App } = await import('@capacitor/app');
-  App.addListener('backButton', ({ canGoBack }) => {
-    const evt = new CustomEvent('kw:back');
-    window.dispatchEvent(evt);
-    if (!canGoBack) void App.minimizeApp?.();
+  const { handleSystemBack } = await import('@/composables/useBackNavigation');
+  App.addListener('backButton', () => {
+    if (!handleSystemBack()) void App.minimizeApp?.();
   });
 
   // Biometric re-lock on resume.

@@ -82,6 +82,7 @@ defineExpose({
   <div
     v-else
     ref="root"
+    :data-entry-id="entry.id"
     class="group kw-selectable max-md:min-h-11 flex items-center gap-3 pl-3 pr-2 py-2 cursor-pointer border-b border-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
     :class="selected ? 'bg-primary/10' : 'hover:bg-elevated/50'"
     role="option"

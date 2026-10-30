@@ -77,4 +77,6 @@ body {
 /* Selection highlight for entry list rows */
 .kw-selectable {
   user-select: none;
+  /* long-press opens our menu, not the system's link/text callout */
+  -webkit-touch-callout: none;
 }

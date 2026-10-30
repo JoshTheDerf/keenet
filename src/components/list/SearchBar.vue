@@ -172,6 +172,7 @@ function onSearchKeydown(e: KeyboardEvent): void {
         icon="i-lucide-timer"
         :aria-label="t('otpCodes')"
         :aria-pressed="otpView"
+        class="max-md:hidden"
         data-testid="otp-toggle"
         @click="toggleOtpView"
       />
@@ -181,6 +182,7 @@ function onSearchKeydown(e: KeyboardEvent): void {
       <UButton
         color="primary"
         icon="i-lucide-plus"
+        class="max-md:hidden"
         :aria-label="t('searchAddNew')"
         @click="newEntry"
       />
