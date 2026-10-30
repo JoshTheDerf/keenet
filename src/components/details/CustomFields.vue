@@ -58,6 +58,12 @@ function remove(index: number): void {
 
 const addOpen = ref(false);
 
+defineExpose({
+  add(): void {
+    addOpen.value = true;
+  }
+});
+
 function confirmAddField(name: string): void {
   if (props.fields.some((f) => f.name === name)) {
     ui.notify(t('detFieldExists'), { color: 'warning', description: name });
@@ -130,17 +136,6 @@ function confirmAddField(name: string): void {
       </div>
     </div>
 
-    <div>
-      <UButton
-        color="neutral"
-        variant="soft"
-        icon="i-lucide-plus"
-        size="sm"
-        @click="addOpen = true"
-      >
-        {{ t('detMenuAddNewField') }}
-      </UButton>
-    </div>
 
     <TextPromptModal
       v-model:open="addOpen"

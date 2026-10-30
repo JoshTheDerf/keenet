@@ -23,7 +23,11 @@ export const useUiStore = defineStore('ui', () => {
   /** Incremented to ask the search box to focus (keyboard shortcut). */
   const focusSearchToken = ref(0);
 
-  function requestFocusSearch(): void {
+  /** Whether the focused search box selects its text (Ctrl+F) or keeps typing (type-to-search). */
+  const focusSearchSelect = ref(true);
+
+  function requestFocusSearch(select = true): void {
+    focusSearchSelect.value = select;
     focusSearchToken.value++;
   }
 
@@ -38,7 +42,9 @@ export const useUiStore = defineStore('ui', () => {
 
   function notify(title: string, opts: Partial<Omit<Toast, 'id' | 'title'>> = {}): void {
     const toast: Toast = { id: ++toastSeq, title, ...opts };
-    toasts.value.push(toast);
+    // the same message again (copying twice) replaces the old one, and only the
+    // newest few stay on screen so they never cover the list
+    toasts.value = [...toasts.value.filter((x) => x.title !== title), toast].slice(-3);
     // Give the user a bit longer when there's something to click.
     setTimeout(() => dismiss(toast.id), toast.action ? 8000 : 4000);
   }
@@ -53,6 +59,7 @@ export const useUiStore = defineStore('ui', () => {
     menuCollapsed,
     toasts,
     focusSearchToken,
+    focusSearchSelect,
     requestFocusSearch,
     showScreen,
     openSettings,

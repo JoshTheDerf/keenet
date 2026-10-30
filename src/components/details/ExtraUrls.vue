@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, useTemplateRef } from 'vue';
 import { t } from '@/i18n';
 import { useVaultStore } from '@/stores/vault';
 import { useClipboard } from '@/composables/useClipboard';
@@ -10,6 +10,13 @@ const vault = useVaultStore();
 const { copy } = useClipboard();
 
 const draft = ref('');
+const draftInput = useTemplateRef<{ inputRef?: HTMLInputElement }>('draftInput');
+
+defineExpose({
+  focus(): void {
+    draftInput.value?.inputRef?.focus();
+  }
+});
 
 function commit(urls: string[]): void {
   vault.setExtraUrls(props.fileId, props.entryId, urls);
@@ -40,7 +47,7 @@ function add(): void {
 </script>
 
 <template>
-  <UFormField :label="t('detMenuAddNewWebsite')">
+  <UFormField :label="t('detOtherWebsites')">
     <div class="flex flex-col gap-1.5">
       <div v-for="(url, index) in urls" :key="index" class="flex items-center gap-1.5">
         <UInput
@@ -85,6 +92,7 @@ function add(): void {
 
       <div class="flex items-center gap-1.5">
         <UInput
+          ref="draftInput"
           v-model="draft"
           icon="i-lucide-plus"
           :placeholder="t('detMenuAddNewWebsite')"

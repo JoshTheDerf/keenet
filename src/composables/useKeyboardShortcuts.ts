@@ -18,6 +18,10 @@ function inEditable(target: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
 }
 
+function overlayOpen(): boolean {
+  return !!document.querySelector('[role="dialog"], [role="menu"]');
+}
+
 export function useKeyboardShortcuts(): void {
   const vault = useVaultStore();
   const ui = useUiStore();
@@ -83,7 +87,23 @@ export function useKeyboardShortcuts(): void {
       void copy(vault.resolveReference(entry.fileId, entry.password), t('password'), { sensitive: true });
       return;
     }
-    if (e.key === 'Escape' && !inEditable(e.target)) {
+    // Type-to-search: a printable key outside any text field starts a search
+    if (
+      !mod &&
+      !e.altKey &&
+      e.key.length === 1 &&
+      e.key !== ' ' &&
+      !inEditable(e.target) &&
+      vault.hasFiles &&
+      !overlayOpen()
+    ) {
+      e.preventDefault();
+      vault.setSearch({ text: e.key });
+      ui.requestFocusSearch(false);
+      return;
+    }
+    // Escape that closes a menu or dialog shouldn't also close the entry
+    if (e.key === 'Escape' && !inEditable(e.target) && !e.defaultPrevented && !overlayOpen()) {
       if (vault.selectedEntryId) vault.selectEntry(null);
     }
   }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, useTemplateRef } from 'vue';
 import { t } from '@/i18n';
 import { useVaultStore } from '@/stores/vault';
 
@@ -8,6 +8,13 @@ const emit = defineEmits<{ update: [tags: string[]] }>();
 
 const vault = useVaultStore();
 const draft = ref('');
+const input = useTemplateRef<{ inputRef?: HTMLInputElement }>('input');
+
+defineExpose({
+  focus(): void {
+    input.value?.inputRef?.focus();
+  }
+});
 
 const suggestions = computed(() => {
   const q = draft.value.trim().toLowerCase();
@@ -58,6 +65,7 @@ function removeTag(tag: string): void {
       </UBadge>
 
       <UInput
+        ref="input"
         v-model="draft"
         :placeholder="t('tags')"
         size="sm"

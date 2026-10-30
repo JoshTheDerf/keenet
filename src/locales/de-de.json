@@ -1090,5 +1090,17 @@
   "otpPlanNew": "Neuer Eintrag",
   "otpPlanAttach": "Zu {}",
   "otpPlanSkip": "Schon vorhanden",
-  "otpImportRun": "{} Codes importieren"
+  "otpImportRun": "{} Codes importieren",
+  "searchAscending": "Aufsteigend",
+  "searchDescending": "Absteigend",
+  "searchViewOptions": "Sortier- und Suchoptionen",
+  "searchOptionsTitle": "Suchoptionen",
+  "detAddToEntry": "Hinzufügen",
+  "detAddWebsite": "Weitere Website",
+  "detAddTag": "Tag",
+  "detAddExpiry": "Ablaufdatum",
+  "detOtherWebsites": "Weitere Websites",
+  "detAddCustomField": "Benutzerdefiniertes Feld",
+  "detAddAttachmentItem": "Anhang",
+  "detHistoryItem": "Verlauf"
 }

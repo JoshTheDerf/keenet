@@ -56,10 +56,6 @@ function onGeneratorSelect(pw: string): void {
   void copy(pw, t('password'));
 }
 
-function backToList(): void {
-  vault.selectEntry(null);
-}
-
 // Desktop: a global shortcut asks us to auto-type the selected entry.
 let unsubAutoType: (() => void) | undefined;
 onMounted(() => {
@@ -121,16 +117,6 @@ onUnmounted(() => unsubAutoType?.());
         class="min-w-0 overflow-y-auto md:flex-1 md:block"
         :class="isMobile ? (showDetailsMobile ? 'block w-full' : 'hidden') : 'block flex-1'"
       >
-        <!-- Mobile-only back bar -->
-        <div class="md:hidden sticky top-0 z-10 bg-default/80 backdrop-blur border-b border-default px-2 py-2">
-          <UButton
-            icon="i-lucide-arrow-left"
-            color="neutral"
-            variant="ghost"
-            :label="t('back')"
-            @click="backToList"
-          />
-        </div>
         <EntryDetails :key="vault.selectedEntryId ?? 'none'" />
       </section>
     </div>

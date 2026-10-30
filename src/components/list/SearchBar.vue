@@ -18,7 +18,8 @@ watch(
     const el = searchInput.value;
     const input = (el as unknown as { inputRef?: HTMLInputElement })?.inputRef ?? el?.querySelector?.('input');
     input?.focus();
-    input?.select();
+    if (ui.focusSearchSelect) input?.select();
+    else input?.setSelectionRange(input.value.length, input.value.length);
   }
 );
 
@@ -49,13 +50,49 @@ const currentSortLabel = computed(
   () => sortOptions.value.find((o) => o.field === vault.sortField)?.label ?? ''
 );
 
-const sortItems = computed<DropdownMenuItem[]>(() =>
-  sortOptions.value.map((o) => ({
-    label: o.label,
-    icon: o.icon,
-    active: o.field === vault.sortField,
-    onSelect: () => vault.setSort(o.field)
-  }))
+// Sorting and search options share one menu: they're set rarely, and the
+// search row stays short enough for phones.
+const viewItems = computed<DropdownMenuItem[][]>(() => [
+  [
+    { type: 'label', label: t('searchSort') },
+    ...sortOptions.value.map((o) => ({
+      label: o.label,
+      icon: o.icon,
+      type: 'checkbox' as const,
+      checked: o.field === vault.sortField,
+      onSelect: (e: Event) => {
+        e.preventDefault();
+        vault.setSort(o.field, o.field === vault.sortField ? vault.sortDir : 'asc');
+      }
+    })),
+    {
+      label: vault.sortDir === 'asc' ? t('searchAscending') : t('searchDescending'),
+      icon: dirIcon.value,
+      onSelect: (e: Event) => {
+        e.preventDefault();
+        vault.setSort(vault.sortField, vault.sortDir === 'asc' ? 'desc' : 'asc');
+      }
+    }
+  ],
+  [
+    { type: 'label', label: t('searchOptionsTitle') },
+    ...([
+      ['caseSensitive', t('searchCase')],
+      ['regex', t('searchRegex')],
+      ['includeProtected', t('searchProtect')]
+    ] as const).map(([key, label]) => ({
+      label,
+      type: 'checkbox' as const,
+      checked: vault.search[key] ?? false,
+      onUpdateChecked: (v: boolean) => vault.setSearch({ [key]: v }),
+      onSelect: (e: Event) => e.preventDefault()
+    }))
+  ]
+]);
+
+/** Search options in effect, so a filtered list never looks like a bug. */
+const optionsActive = computed(
+  () => !!(vault.search.caseSensitive || vault.search.regex || vault.search.includeProtected)
 );
 
 function onSearchInput(value: string): void {
@@ -76,18 +113,26 @@ function toggleOtpView(): void {
   vault.setSelection(otpView.value ? { type: 'all' } : { type: 'otp' });
 }
 
-const caseSensitive = computed({
-  get: () => vault.search.caseSensitive ?? false,
-  set: (v: boolean) => vault.setSearch({ caseSensitive: v })
-});
-const regex = computed({
-  get: () => vault.search.regex ?? false,
-  set: (v: boolean) => vault.setSearch({ regex: v })
-});
-const includeProtected = computed({
-  get: () => vault.search.includeProtected ?? false,
-  set: (v: boolean) => vault.setSearch({ includeProtected: v })
-});
+// Keys in the search box drive the list: arrows pick an entry, Enter opens the
+// first match, Escape clears.
+function onSearchKeydown(e: KeyboardEvent): void {
+  const list = vault.list;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!list.length) return;
+    e.preventDefault();
+    const i = list.findIndex((x) => x.id === vault.selectedEntryId);
+    const next = e.key === 'ArrowDown' ? Math.min(list.length - 1, i + 1) : Math.max(0, i - 1);
+    vault.selectEntry(list[i === -1 ? 0 : next].id);
+  } else if (e.key === 'Enter') {
+    if (!list.length) return;
+    e.preventDefault();
+    if (!list.some((x) => x.id === vault.selectedEntryId)) vault.selectEntry(list[0].id);
+  } else if (e.key === 'Escape' && vault.search.text) {
+    e.preventDefault();
+    e.stopPropagation();
+    clearSearch();
+  }
+}
 </script>
 
 <template>
@@ -101,6 +146,7 @@ const includeProtected = computed({
       spellcheck="false"
       class="flex-1 min-w-0"
       @update:model-value="onSearchInput"
+      @keydown="onSearchKeydown"
     >
       <template #trailing>
         <UButton
@@ -140,39 +186,18 @@ const includeProtected = computed({
       />
     </UTooltip>
 
-    <UDropdownMenu :items="sortItems">
-      <UTooltip :text="`${t('searchSort')}: ${currentSortLabel}`">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-arrow-up-down"
-          :trailing-icon="dirIcon"
-          :aria-label="t('searchSort')"
-        />
+    <UDropdownMenu :items="viewItems" :content="{ align: 'end' }">
+      <UTooltip :text="`${t('searchViewOptions')}: ${currentSortLabel}`">
+        <UChip :show="optionsActive" color="primary" size="sm" inset>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-arrow-up-down"
+            :aria-label="t('searchViewOptions')"
+            data-testid="view-options"
+          />
+        </UChip>
       </UTooltip>
-
-      <template #item-trailing="{ item }">
-        <UIcon v-if="item.active" :name="dirIcon" class="size-4 text-primary" />
-      </template>
     </UDropdownMenu>
-
-    <UPopover>
-      <UTooltip :text="t('searchAdvTitle')">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-sliders-horizontal"
-          :aria-label="t('searchAdvTitle')"
-        />
-      </UTooltip>
-
-      <template #content>
-        <div class="p-3 flex flex-col gap-2 min-w-48">
-          <UCheckbox v-model="caseSensitive" :label="t('searchCase')" />
-          <UCheckbox v-model="regex" :label="t('searchRegex')" />
-          <UCheckbox v-model="includeProtected" :label="t('searchProtect')" />
-        </div>
-      </template>
-    </UPopover>
   </div>
 </template>

@@ -45,6 +45,12 @@ function onSetup(tokens: ImportedToken[]): void {
   if (!e.username && tok.issuer && tok.account) vault.updateField(e.fileId, e.id, 'UserName', tok.account);
 }
 
+defineExpose({
+  setup(): void {
+    setupOpen.value = true;
+  }
+});
+
 function removeOtp(): void {
   vault.setOtp(props.entry.fileId, props.entry.id, undefined);
 }

@@ -45,6 +45,7 @@ function toastActions(toast: Toast): ButtonProps[] | undefined {
         :color="toast.color ?? 'info'"
         :actions="toastActions(toast)"
         variant="subtle"
+        class="bg-default shadow-lg"
         close
         @update:open="ui.dismiss(toast.id)"
       />

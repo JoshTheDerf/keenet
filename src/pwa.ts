@@ -67,9 +67,9 @@ export function initPwa(): void {
       applyIfSafe();
     },
 
-    onOfflineReady() {
-      useUiStore().notify(t('appOfflineReady'), { color: 'success' });
-    }
+    // offline readiness is silent: it needs no action, and it arrived on top of
+    // whatever the user opened first
+    onOfflineReady() {}
   });
 
   // Re-attempt a deferred update when the vault returns to a clean state

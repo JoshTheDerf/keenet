@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, reactive, nextTick, useTemplateRef } from 'vue';
 import type { DropdownMenuItem } from '@nuxt/ui';
 import { t } from '@/i18n';
 import { useVaultStore } from '@/stores/vault';
@@ -19,6 +19,7 @@ import NotesField from '@/components/details/NotesField.vue';
 import AutoTypePanel from '@/components/details/AutoTypePanel.vue';
 import MoveEntryModal from '@/components/details/MoveEntryModal.vue';
 import ConfirmModal from '@/components/shared/ConfirmModal.vue';
+import { isDesktop } from '@/composables/useDesktop';
 
 const vault = useVaultStore();
 const ui = useUiStore();
@@ -58,6 +59,65 @@ function restore(): void {
   const e = entry.value;
   if (e) vault.restoreEntry(e.fileId, e.id);
 }
+
+const desktopApp = isDesktop();
+
+// ---- optional sections: shown when they have content, or once asked for ----
+const shown = reactive({ otp: false, urls: false, tags: false, fields: false, expiry: false });
+const otpField = useTemplateRef<{ setup: () => void }>('otpField');
+const extraUrls = useTemplateRef<{ focus: () => void }>('extraUrls');
+const tagsField = useTemplateRef<{ focus: () => void }>('tagsField');
+const customFields = useTemplateRef<{ add: () => void }>('customFields');
+const expiryField = useTemplateRef<{ focus: () => void }>('expiryField');
+const attachInput = useTemplateRef<HTMLInputElement>('attachInput');
+
+// The chosen section takes focus once the menu has finished closing (its
+// close-focus hook), so typing right away lands in the new field.
+let afterMenu: (() => void) | null = null;
+function reveal(key: keyof typeof shown, then: () => void): void {
+  shown[key] = true;
+  afterMenu = then;
+}
+async function onAddMenuClosed(e: Event): Promise<void> {
+  e.preventDefault();
+  const run = afterMenu;
+  afterMenu = null;
+  await nextTick();
+  run?.();
+}
+
+const addItems = computed<DropdownMenuItem[]>(() => {
+  const e = entry.value;
+  if (!e) return [];
+  const items: DropdownMenuItem[] = [];
+  if (!e.otp) items.push({ label: t('detOtpField'), icon: 'i-lucide-timer', onSelect: () => reveal('otp', () => otpField.value?.setup()) });
+  items.push({ label: t('detAddWebsite'), icon: 'i-lucide-globe', onSelect: () => reveal('urls', () => extraUrls.value?.focus()) });
+  items.push({ label: t('detAddTag'), icon: 'i-lucide-tag', onSelect: () => reveal('tags', () => tagsField.value?.focus()) });
+  items.push({ label: t('detAddCustomField'), icon: 'i-lucide-text-cursor-input', onSelect: () => reveal('fields', () => customFields.value?.add()) });
+  items.push({ label: t('detAddAttachmentItem'), icon: 'i-lucide-paperclip', onSelect: () => attachInput.value?.click() });
+  if (!e.expires) items.push({ label: t('detAddExpiry'), icon: 'i-lucide-calendar-clock', onSelect: () => reveal('expiry', () => expiryField.value?.focus()) });
+  return items;
+});
+
+async function onAttach(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const e = entry.value;
+  if (!e || !input.files) return;
+  for (const file of Array.from(input.files)) {
+    await vault.addAttachment(e.fileId, e.id, file.name, await file.arrayBuffer());
+  }
+  input.value = '';
+}
+
+const moreItems = computed<DropdownMenuItem[]>(() => {
+  const e = entry.value;
+  if (!e) return [];
+  return [
+    { label: t('detClone'), icon: 'i-lucide-copy-plus', onSelect: clone },
+    ...(!e.inTrash ? [{ label: t('detMoveToGroup'), icon: 'i-lucide-folder-input', onSelect: () => (moveOpen.value = true) }] : []),
+    ...(e.historyLength ? [{ label: `${t('detHistoryItem')} (${e.historyLength})`, icon: 'i-lucide-history', onSelect: () => (showHistory.value = true) }] : [])
+  ];
+});
 
 const title = ref('');
 const showHistory = ref(false);
@@ -172,61 +232,51 @@ function confirmDelete(): void {
   </div>
 
   <div v-else class="flex flex-col gap-5 p-4 max-w-3xl">
-    <!-- Header: icon + title on one line; the actions wrap below on narrow screens -->
-    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <div class="flex flex-1 basis-64 items-center gap-2 min-w-0">
-        <IconPicker :icon="entry.icon" :color="entry.color" @select="setIcon" />
-        <UInput
-          v-model="title"
+    <!-- Header: back (phones), icon, title, then the few actions; the rest live in ⋯ -->
+    <div
+      class="flex items-center gap-1.5 max-md:sticky max-md:top-0 max-md:z-10 max-md:-mx-4 max-md:-mt-4 max-md:px-2 max-md:py-1.5 max-md:bg-default/90 max-md:backdrop-blur max-md:border-b max-md:border-default"
+    >
+      <UButton
+        class="md:hidden"
+        color="neutral"
+        variant="ghost"
+        icon="i-lucide-arrow-left"
+        :aria-label="t('back')"
+        data-testid="details-back"
+        @click="vault.selectEntry(null)"
+      />
+      <IconPicker :icon="entry.icon" :color="entry.color" @select="setIcon" />
+      <UInput
+        v-model="title"
+        variant="ghost"
+        size="xl"
+        :placeholder="t('noTitle')"
+        class="flex-1 min-w-0 font-semibold"
+        @blur="commitTitle"
+        @keydown.enter="commitTitle"
+      />
+      <ColorPicker :color="entry.color" @select="setColor" />
+      <UTooltip v-if="entry.inTrash" :text="t('detRestore')">
+        <UButton
+          color="neutral"
           variant="ghost"
-          size="xl"
-          :placeholder="t('noTitle')"
-          class="flex-1 min-w-0 font-semibold"
-          @blur="commitTitle"
-          @keydown.enter="commitTitle"
+          icon="i-lucide-archive-restore"
+          :aria-label="t('detRestore')"
+          @click="restore"
         />
-      </div>
-      <div class="flex items-center gap-1 ml-auto">
-        <ColorPicker :color="entry.color" @select="setColor" />
-
-        <UTooltip v-if="entry.inTrash" :text="t('detRestore')">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-archive-restore"
-            :aria-label="t('detRestore')"
-            @click="restore"
-          />
-        </UTooltip>
-
-        <UTooltip :text="t('detClone')">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-copy-plus"
-            :aria-label="t('detClone')"
-            @click="clone"
-          />
-        </UTooltip>
-        <UTooltip v-if="!entry.inTrash" :text="t('detMoveToGroup')">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-folder-input"
-            :aria-label="t('detMoveToGroup')"
-            @click="moveOpen = true"
-          />
-        </UTooltip>
-        <UTooltip :text="deleteIsPermanent ? t('detDelEntryPerm') : t('detDelEntry')">
-          <UButton
-            color="error"
-            variant="ghost"
-            icon="i-lucide-trash-2"
-            :aria-label="deleteIsPermanent ? t('detDelEntryPerm') : t('detDelEntry')"
-            @click="remove"
-          />
-        </UTooltip>
-      </div>
+      </UTooltip>
+      <UTooltip :text="deleteIsPermanent ? t('detDelEntryPerm') : t('detDelEntry')">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-trash-2"
+          :aria-label="deleteIsPermanent ? t('detDelEntryPerm') : t('detDelEntry')"
+          @click="remove"
+        />
+      </UTooltip>
+      <UDropdownMenu :items="moreItems" :content="{ align: 'end' }">
+        <UButton color="neutral" variant="ghost" icon="i-lucide-ellipsis-vertical" :aria-label="t('options')" />
+      </UDropdownMenu>
     </div>
 
     <FieldRow
@@ -241,10 +291,10 @@ function confirmDelete(): void {
       :model-value="entry.password"
       :file-id="entry.fileId"
       :user-inputs="[entry.title, entry.username]"
-      @commit="(v) => onField('Password', v, true)"
+      @commit="(v) => onField('Password', v)"
     />
 
-    <OtpField :entry="entry" />
+    <OtpField v-if="entry.otp || shown.otp" ref="otpField" :entry="entry" />
 
     <FieldRow
       :label="t('website')"
@@ -267,30 +317,58 @@ function confirmDelete(): void {
       </template>
     </FieldRow>
 
-    <ExtraUrls :file-id="entry.fileId" :entry-id="entry.id" :urls="entry.extraUrls" />
+    <ExtraUrls
+      v-if="entry.extraUrls.length || shown.urls"
+      ref="extraUrls"
+      :file-id="entry.fileId"
+      :entry-id="entry.id"
+      :urls="entry.extraUrls"
+    />
 
     <NotesField :model-value="entry.notes" @commit="(v) => onField('Notes', v)" />
 
-    <TagsField :tags="entry.tags" @update="setTags" />
+    <TagsField v-if="entry.tags.length || shown.tags" ref="tagsField" :tags="entry.tags" @update="setTags" />
 
-    <CustomFields :file-id="entry.fileId" :entry-id="entry.id" :fields="entry.fields" />
+    <CustomFields
+      v-show="entry.fields.length || shown.fields"
+      ref="customFields"
+      :file-id="entry.fileId"
+      :entry-id="entry.id"
+      :fields="entry.fields"
+    />
 
     <AttachmentsList
+      v-if="entry.attachments.length"
       :file-id="entry.fileId"
       :entry-id="entry.id"
       :attachments="entry.attachments"
     />
 
     <ExpiryField
+      v-if="entry.expires || shown.expiry"
+      ref="expiryField"
       :file-id="entry.fileId"
       :entry-id="entry.id"
       :expires="entry.expires"
       :expired="entry.expired"
     />
 
+    <!-- Everything optional is one menu away instead of always on screen -->
+    <div v-if="addItems.length && !entry.inTrash">
+      <UDropdownMenu
+        :items="addItems"
+        :content="{ align: 'start', onCloseAutoFocus: onAddMenuClosed }"
+      >
+        <UButton color="neutral" variant="soft" size="sm" icon="i-lucide-plus" trailing-icon="i-lucide-chevron-down" data-testid="add-to-entry">
+          {{ t('detAddToEntry') }}
+        </UButton>
+      </UDropdownMenu>
+      <input ref="attachInput" type="file" multiple class="hidden" @change="onAttach" />
+    </div>
+
     <USeparator />
 
-    <AutoTypePanel :entry="entry" />
+    <AutoTypePanel v-if="desktopApp" :entry="entry" />
 
     <!-- Metadata footer -->
     <div class="flex flex-col gap-1 text-xs text-muted">
@@ -300,17 +378,6 @@ function confirmDelete(): void {
       </div>
       <div>{{ t('detCreated') }}: {{ formatDate(entry.created) }}</div>
       <div>{{ t('detUpdated') }}: {{ formatDate(entry.updated) }}</div>
-      <div v-if="entry.historyLength > 0" class="mt-1">
-        <UButton
-          color="neutral"
-          variant="soft"
-          size="xs"
-          icon="i-lucide-history"
-          @click="showHistory = true"
-        >
-          {{ t('history') }} ({{ entry.historyLength }})
-        </UButton>
-      </div>
     </div>
 
     <MoveEntryModal

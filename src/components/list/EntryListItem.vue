@@ -5,6 +5,8 @@ import ColorDot from '@/components/shared/ColorDot.vue';
 import OtpChip from '@/components/otp/OtpChip.vue';
 import { t } from '@/i18n';
 import { hostOf } from '@/components/shared/format';
+import { useVaultStore } from '@/stores/vault';
+import { useClipboard } from '@/composables/useClipboard';
 import type { EntryVm } from '@/types';
 
 const props = withDefaults(
@@ -13,6 +15,17 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ select: [id: string] }>();
+
+const vault = useVaultStore();
+const { copy } = useClipboard();
+
+// copy straight from the list, without opening the entry
+function copyUser(): void {
+  void copy(vault.resolveReference(props.entry.fileId, props.entry.username), t('user'));
+}
+function copyPassword(): void {
+  void copy(vault.resolveReference(props.entry.fileId, props.entry.password), t('password'), { sensitive: true });
+}
 
 const host = computed(() => hostOf(props.entry.url));
 
@@ -69,7 +82,7 @@ defineExpose({
   <div
     v-else
     ref="root"
-    class="kw-selectable max-md:min-h-11 flex items-center gap-3 px-3 py-2 cursor-pointer border-b border-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+    class="group kw-selectable max-md:min-h-11 flex items-center gap-3 pl-3 pr-2 py-2 cursor-pointer border-b border-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
     :class="selected ? 'bg-primary/10' : 'hover:bg-elevated/50'"
     role="option"
     :tabindex="selected ? 0 : -1"
@@ -109,6 +122,36 @@ defineExpose({
         name="i-lucide-triangle-alert"
         class="size-4 text-warning"
       />
+      <div
+        v-if="!entry.inTrash"
+        class="flex items-center"
+        :class="selected ? '' : 'pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100'"
+      >
+        <UTooltip v-if="entry.username" :text="t('detCopyField', t('user'))" :kbds="['meta', 'b']">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            icon="i-lucide-user"
+            class="pointer-coarse:hidden"
+            :aria-label="t('detCopyField', t('user'))"
+            tabindex="-1"
+            @click.stop="copyUser"
+          />
+        </UTooltip>
+        <UTooltip v-if="entry.password" :text="t('detCopyField', t('password'))" :kbds="['meta', 'c']">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            icon="i-lucide-key-round"
+            :aria-label="t('detCopyField', t('password'))"
+            tabindex="-1"
+            data-testid="copy-password"
+            @click.stop="copyPassword"
+          />
+        </UTooltip>
+      </div>
     </div>
   </div>
 </template>

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue';
 import { t } from '@/i18n';
 import { useVaultStore } from '@/stores/vault';
 import { useUiStore } from '@/stores/ui';
@@ -10,7 +9,6 @@ const props = defineProps<{ fileId: string; entryId: string; attachments: Attach
 
 const vault = useVaultStore();
 const ui = useUiStore();
-const fileInput = ref<HTMLInputElement | null>(null);
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -26,17 +24,6 @@ function download(name: string): void {
 
 function remove(name: string): void {
   vault.removeAttachment(props.fileId, props.entryId, name);
-}
-
-async function onFilesPicked(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement;
-  const files = input.files;
-  if (!files) return;
-  for (const file of Array.from(files)) {
-    const buf = await file.arrayBuffer();
-    await vault.addAttachment(props.fileId, props.entryId, file.name, buf);
-  }
-  input.value = '';
 }
 </script>
 
@@ -73,22 +60,6 @@ async function onFilesPicked(event: Event): Promise<void> {
         </UTooltip>
       </div>
 
-      <p v-if="!props.attachments.length" class="text-sm text-muted">
-        {{ t('listNoAttachments') }}
-      </p>
-
-      <div>
-        <UButton
-          color="neutral"
-          variant="soft"
-          size="sm"
-          icon="i-lucide-plus"
-          @click="fileInput?.click()"
-        >
-          {{ t('detAddAttachment') }}
-        </UButton>
-        <input ref="fileInput" type="file" multiple class="hidden" @change="onFilesPicked" />
-      </div>
     </div>
   </UFormField>
 </template>

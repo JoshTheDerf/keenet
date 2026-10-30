@@ -110,7 +110,8 @@ export default defineConfig(({ mode }) => {
         radioGroup: { defaultVariants: { size: 'lg' } },
         switch: { defaultVariants: { size: 'lg' } },
         pinInput: { defaultVariants: { size: 'lg' } },
-        formField: { defaultVariants: { size: 'lg' } }
+        // several labels come from legacy lowercase locale keys ("user", "notes")
+        formField: { defaultVariants: { size: 'lg' }, slots: { label: 'first-letter:uppercase' } }
       }
     }),
     VitePWA({

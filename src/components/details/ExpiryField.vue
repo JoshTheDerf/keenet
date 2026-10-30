@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, useTemplateRef } from 'vue';
 import { t } from '@/i18n';
 import { useVaultStore } from '@/stores/vault';
 
@@ -11,6 +11,19 @@ const props = defineProps<{
 }>();
 
 const vault = useVaultStore();
+const input = useTemplateRef<{ inputRef?: HTMLInputElement }>('input');
+
+defineExpose({
+  focus(): void {
+    const el = input.value?.inputRef;
+    el?.focus();
+    try {
+      el?.showPicker();
+    } catch {
+      /* showPicker needs a user gesture in some browsers; focus is enough */
+    }
+  }
+});
 
 function toInput(ms: number | undefined): string {
   if (!ms) return '';
@@ -49,7 +62,7 @@ function clear(): void {
 <template>
   <UFormField :label="t('detExpires')">
     <div class="flex items-center gap-1.5">
-      <UInput v-model="local" type="date" class="w-48" @change="commit" @blur="commit" />
+      <UInput ref="input" v-model="local" type="date" class="w-48" @change="commit" @blur="commit" />
       <UButton
         v-if="local"
         color="neutral"
