@@ -244,6 +244,8 @@ function confirmDelete(): void {
       @commit="(v) => onField('Password', v, true)"
     />
 
+    <OtpField :entry="entry" />
+
     <FieldRow
       :label="t('website')"
       :model-value="entry.url"
@@ -270,8 +272,6 @@ function confirmDelete(): void {
     <NotesField :model-value="entry.notes" @commit="(v) => onField('Notes', v)" />
 
     <TagsField :tags="entry.tags" @update="setTags" />
-
-    <OtpField :file-id="entry.fileId" :entry-id="entry.id" :otp="entry.otp" />
 
     <CustomFields :file-id="entry.fileId" :entry-id="entry.id" :fields="entry.fields" />
 

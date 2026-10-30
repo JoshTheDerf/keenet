@@ -70,6 +70,14 @@ jobs:
           sed -i -E "s/versionCode [0-9]+/versionCode $CODE/; s/versionName \"[^\"]*\"/versionName \"$V\"/" android/app/build.gradle
           grep -E 'versionCode|versionName' android/app/build.gradle
 
+      # Scanning one-time code QR codes needs the camera (optional: the app
+      # also reads QR codes from images). Capacitor's WebChromeClient asks for
+      # the runtime permission when the page calls getUserMedia.
+      - name: Add camera permission
+        run: |
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|&\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />|' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.CAMERA' android/app/src/main/AndroidManifest.xml
+
       # Replace Capacitor's placeholder icons with ours (from resources/).
       - name: Generate app icons & splash
         run: |

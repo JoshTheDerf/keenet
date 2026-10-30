@@ -3,6 +3,8 @@ import { ref, computed, watch } from 'vue';
 import { useVaultStore } from '@/stores/vault';
 import { pickFileViaInput } from '@/storage/local';
 import { parseCsv, guessMapping, rowsToEntries, type CsvMapping } from '@/domain/csv';
+import { parseOtpImport, type ImportedToken } from '@/domain/otp-import';
+import { useOverlays } from '@/composables/useOverlays';
 import { t } from '@/i18n';
 
 const open = defineModel<boolean>('open', { default: false });
@@ -10,12 +12,14 @@ const props = defineProps<{ fileId: string }>();
 
 const vault = useVaultStore();
 
-type Mode = 'csv' | 'kdbx';
+type Mode = 'csv' | 'kdbx' | 'otp';
 const mode = ref<Mode>('csv');
+const { importMode } = useOverlays();
 
 const tabs = computed<{ label: string; value: Mode; icon: string; slot: Mode }[]>(() => [
   { label: t('importCsvFile'), value: 'csv', icon: 'i-lucide-file-spreadsheet', slot: 'csv' },
-  { label: t('importKdbxFile'), value: 'kdbx', icon: 'i-lucide-database', slot: 'kdbx' }
+  { label: t('importKdbxFile'), value: 'kdbx', icon: 'i-lucide-database', slot: 'kdbx' },
+  { label: t('otpImportTab'), value: 'otp', icon: 'i-lucide-timer', slot: 'otp' }
 ]);
 
 // ---- CSV state -----------------------------------------------------------
@@ -170,11 +174,45 @@ async function importKdbx(): Promise<void> {
   }
 }
 
+// ---- one-time codes (FreeOTP JSON / otpauth list) --------------------------
+
+const otpFileName = ref<string | null>(null);
+const otpTokens = ref<ImportedToken[]>([]);
+const otpError = ref('');
+const otpAttach = ref(true);
+
+const otpPlan = computed(() => vault.planOtpImport(props.fileId, otpTokens.value, otpAttach.value));
+const otpImportCount = computed(() => otpPlan.value.filter((p) => p.action !== 'skip').length);
+
+async function pickOtp(): Promise<void> {
+  const picked = await pickFileViaInput('.json,.txt,application/json,text/plain');
+  if (!picked) return;
+  otpFileName.value = picked.name;
+  otpError.value = '';
+  otpTokens.value = [];
+  try {
+    otpTokens.value = parseOtpImport(new TextDecoder().decode(picked.data));
+  } catch {
+    otpError.value = t('otpImportUnreadable');
+  }
+}
+
+function importOtp(): void {
+  if (!otpImportCount.value) return;
+  vault.importOtp(props.fileId, otpTokens.value, otpAttach.value);
+  open.value = false;
+}
+
 // ---- reset on open -------------------------------------------------------
 
 watch(open, (isOpen) => {
   if (!isOpen) return;
-  mode.value = 'csv';
+  mode.value = importMode.value;
+  importMode.value = 'csv';
+  otpFileName.value = null;
+  otpTokens.value = [];
+  otpError.value = '';
+  otpAttach.value = true;
   csvFileName.value = null;
   rows.value = [];
   hasHeader.value = true;
@@ -322,6 +360,34 @@ watch(open, (isOpen) => {
             />
           </div>
         </template>
+
+        <!-- One-time codes (FreeOTP backup) -->
+        <template #otp>
+          <div class="flex flex-col gap-4 pt-2">
+            <p class="text-sm text-muted">{{ t('otpImportHelp') }}</p>
+            <div class="flex items-center gap-3">
+              <UButton icon="i-lucide-upload" variant="soft" :label="t('otpImportChoose')" @click="pickOtp" />
+              <span v-if="otpFileName" class="text-sm text-muted truncate">{{ otpFileName }}</span>
+            </div>
+            <UAlert v-if="otpError" color="error" variant="soft" icon="i-lucide-circle-alert" :title="otpError" />
+
+            <template v-if="otpTokens.length">
+              <UCheckbox v-model="otpAttach" :label="t('otpImportAttach')" :description="t('otpImportAttachHelp')" />
+              <ul class="max-h-72 overflow-y-auto rounded-md ring ring-default divide-y divide-default text-sm">
+                <li v-for="(step, i) in otpPlan" :key="i" class="flex items-center gap-3 px-3 py-2">
+                  <UIcon name="i-lucide-timer" class="size-4 text-muted shrink-0" />
+                  <span class="flex-1 min-w-0">
+                    <span class="block truncate font-medium">{{ step.token.issuer || step.token.account || t('noTitle') }}</span>
+                    <span v-if="step.token.issuer && step.token.account" class="block truncate text-xs text-muted">{{ step.token.account }}</span>
+                  </span>
+                  <UBadge v-if="step.action === 'new'" color="primary" variant="soft" size="sm" :label="t('otpPlanNew')" />
+                  <UBadge v-else-if="step.action === 'attach'" color="success" variant="soft" size="sm" class="max-w-40 truncate" :label="t('otpPlanAttach', step.entryTitle || t('noTitle'))" />
+                  <UBadge v-else color="neutral" variant="soft" size="sm" :label="t('otpPlanSkip')" />
+                </li>
+              </ul>
+            </template>
+          </div>
+        </template>
       </UTabs>
     </template>
 
@@ -335,6 +401,14 @@ watch(open, (isOpen) => {
           :label="t('importEntriesCount', csvEntryCount)"
           :disabled="!canImportCsv"
           @click="importCsv"
+        />
+        <UButton
+          v-else-if="mode === 'otp'"
+          color="primary"
+          icon="i-lucide-download"
+          :label="t('otpImportRun', otpImportCount)"
+          :disabled="!otpImportCount"
+          @click="importOtp"
         />
         <UButton
           v-else

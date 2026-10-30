@@ -8,13 +8,16 @@ import { ref, type Ref } from 'vue';
 const commandPaletteOpen = ref(false);
 const auditOpen = ref(false);
 const importOpen = ref(false);
+/** Tab the import dialog opens on next (it falls back to CSV after each open). */
+const importMode = ref<'csv' | 'kdbx' | 'otp'>('csv');
 
 export function useOverlays(): {
   commandPaletteOpen: Ref<boolean>;
   auditOpen: Ref<boolean>;
   importOpen: Ref<boolean>;
+  importMode: Ref<'csv' | 'kdbx' | 'otp'>;
 } {
-  return { commandPaletteOpen, auditOpen, importOpen };
+  return { commandPaletteOpen, auditOpen, importOpen, importMode };
 }
 
 export function toggleCommandPalette(): void {

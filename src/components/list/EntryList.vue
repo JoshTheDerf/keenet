@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, watch, nextTick, useTemplateRef, onBeforeUpdate } from 'vue';
 import EntryListItem from '@/components/list/EntryListItem.vue';
+import OtpCodesList from '@/components/otp/OtpCodesList.vue';
 import { useVaultStore } from '@/stores/vault';
 import { useSettingsStore } from '@/stores/settings';
 import { useUiStore } from '@/stores/ui';
@@ -112,7 +113,8 @@ function onKeydown(e: KeyboardEvent): void {
 </script>
 
 <template>
-  <div ref="container" class="flex flex-col h-full outline-none" tabindex="0" @keydown="onKeydown">
+  <OtpCodesList v-if="vault.selection.type === 'otp'" />
+  <div v-else ref="container" class="flex flex-col h-full outline-none" tabindex="0" @keydown="onKeydown">
     <!-- Count header -->
     <div
       v-if="entries.length"

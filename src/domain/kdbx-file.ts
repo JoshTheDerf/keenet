@@ -30,6 +30,22 @@ import type {
 import { COLOR_BG, nearestNamedColor } from '@/const/colors';
 import { hasFieldReferences, resolveFieldReferences, type RefEntry } from '@/domain/references';
 import { DEFAULT_SEQUENCE } from '@/domain/auto-type';
+import {
+  OTP_FIELD_NAMES,
+  readEntryOtp,
+  tryParseOtp,
+  buildOtpUri,
+  usesKeePass2Fields,
+  keePass2Fields
+} from '@/domain/otp';
+import type { ImportedToken } from '@/domain/otp-import';
+
+export interface OtpImportPlan {
+  token: ImportedToken;
+  action: 'new' | 'attach' | 'skip';
+  entryId?: string;
+  entryTitle?: string;
+}
 
 export const BUILT_IN_FIELDS = new Set([
   'Title',
@@ -37,9 +53,7 @@ export const BUILT_IN_FIELDS = new Set([
   'UserName',
   'URL',
   'Notes',
-  'otp',
-  'TOTP Seed',
-  'TOTP Settings',
+  ...OTP_FIELD_NAMES,
   '_etm_template_uuid'
 ]);
 
@@ -51,6 +65,19 @@ const STD = {
   notes: 'Notes',
   otp: 'otp'
 } as const;
+
+/** Lowercase letters and digits only: "Git Hub, Inc." → "githubinc". */
+function norm(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(/^[a-z]+:\/\//i.test(url) ? url : `https://${url}`).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
 
 export function fieldToString(value: string | ProtectedValue | undefined): string {
   if (value === undefined || value === null) return '';
@@ -332,6 +359,111 @@ export class KdbxFile {
     entry.fields.delete(name);
     entry.times.update();
     this.markModified();
+  }
+
+  /**
+   * Set (or with `undefined`, remove) the entry's one-time code, as a protected
+   * `otp` URI like KeePassXC writes. An entry that used KeePass 2's own fields
+   * keeps them too (KeePass 2 doesn't read `otp`); legacy fields are dropped.
+   */
+  setOtp(id: string, uri: string | undefined, opts: { history?: boolean } = {}): void {
+    const entry = this.getEntry(id);
+    if (!entry) return;
+    if (opts.history !== false) entry.pushHistory();
+    const kp2 = usesKeePass2Fields((name) => entry.fields.has(name));
+    for (const name of OTP_FIELD_NAMES) entry.fields.delete(name);
+    if (uri) {
+      entry.fields.set(STD.otp, ProtectedValue.fromString(uri));
+      const p = kp2 ? tryParseOtp(uri) : null;
+      if (p && !p.encoder) {
+        for (const [name, value] of Object.entries(keePass2Fields(p))) {
+          entry.fields.set(name, name.includes('Secret') ? ProtectedValue.fromString(value) : value);
+        }
+      }
+    }
+    entry.times.update();
+    this.markModified();
+  }
+
+  /** HOTP: move to the next counter value (each code is single-use). */
+  advanceHotp(id: string): void {
+    const entry = this.getEntry(id);
+    const p = entry ? tryParseOtp(readEntryOtp((name) => fieldToString(entry.fields.get(name)))) : null;
+    if (!p || p.type !== 'hotp') return;
+    // no history entry: the counter moves on every use and isn't an edit
+    this.setOtp(id, buildOtpUri({ ...p, counter: p.counter + 1 }), { history: false });
+  }
+
+  /**
+   * What importing these one-time code setups would do. A token whose issuer
+   * and account match exactly one entry without a code is attached to it; the
+   * rest become new entries. Setups already present (same secret) are skipped.
+   */
+  planOtpImport(tokens: ImportedToken[], attach = true): OtpImportPlan[] {
+    const live = [...this.entryIndex.values()].filter((e) => !this.isInTrash(e));
+    const secrets = new Set<string>();
+    for (const e of live) {
+      const p = tryParseOtp(readEntryOtp((name) => fieldToString(e.fields.get(name))));
+      if (p) secrets.add(p.secret);
+    }
+    const claimed = new Set<KdbxEntry>();
+    return tokens.map((token) => {
+      const secret = tryParseOtp(token.uri)?.secret;
+      if (!secret || secrets.has(secret)) return { token, action: 'skip' };
+      secrets.add(secret);
+      const match = attach ? this.findOtpMatch(live, token) : undefined;
+      if (match && !claimed.has(match)) {
+        claimed.add(match);
+        return { token, action: 'attach', entryId: uuidStr(match.uuid), entryTitle: fieldToString(match.fields.get(STD.title)) };
+      }
+      return { token, action: 'new' };
+    });
+  }
+
+  /** Apply {@link planOtpImport}: new entries go into `groupId` (or the root). */
+  importOtpTokens(tokens: ImportedToken[], groupId?: string, attach = true): { added: number; attached: number; skipped: number } {
+    const target = (groupId ? this.getGroup(groupId) : undefined) ?? this.db.getDefaultGroup();
+    const result = { added: 0, attached: 0, skipped: 0 };
+    for (const step of this.planOtpImport(tokens, attach)) {
+      const tok = step.token;
+      if (step.action === 'skip') {
+        result.skipped++;
+      } else if (step.action === 'attach') {
+        const match = this.getEntry(step.entryId!)!;
+        match.pushHistory();
+        match.fields.set(STD.otp, ProtectedValue.fromString(tok.uri));
+        match.times.update();
+        result.attached++;
+      } else {
+        const entry = this.db.createEntry(target);
+        entry.fields.set(STD.title, tok.issuer || tok.account);
+        entry.fields.set(STD.username, tok.issuer ? tok.account : '');
+        entry.fields.set(STD.password, ProtectedValue.fromString(''));
+        entry.fields.set(STD.url, '');
+        entry.fields.set(STD.notes, '');
+        entry.fields.set(STD.otp, ProtectedValue.fromString(tok.uri));
+        this.entryIndex.set(uuidStr(entry.uuid), entry);
+        result.added++;
+      }
+    }
+    if (result.added || result.attached) this.markModified();
+    return result;
+  }
+
+  /** The single entry (with no code yet) whose title or site names the issuer and whose user is the account. */
+  private findOtpMatch(entries: KdbxEntry[], tok: ImportedToken): KdbxEntry | undefined {
+    const issuer = norm(tok.issuer);
+    const account = tok.account.trim().toLowerCase();
+    if (!issuer || !account) return undefined;
+    const hits = entries.filter((e) => {
+      const get = (name: string) => fieldToString(e.fields.get(name));
+      if (readEntryOtp(get)) return false;
+      if (get(STD.username).trim().toLowerCase() !== account) return false;
+      const title = norm(get(STD.title));
+      const host = norm(hostOf(get(STD.url)));
+      return (!!title && (title.includes(issuer) || issuer.includes(title))) || (!!host && host.includes(issuer));
+    });
+    return hits.length === 1 ? hits[0] : undefined;
   }
 
   setEntryTags(id: string, tags: string[]): void {
@@ -855,7 +987,7 @@ export class KdbxFile {
       bgColor,
       color: nearestNamedColor(bgColor),
       attachments,
-      otp: fieldToString(f.get(STD.otp)) || undefined,
+      otp: readEntryOtp((name) => fieldToString(f.get(name))),
       created: entry.times.creationTime?.getTime() ?? 0,
       updated: entry.times.lastModTime?.getTime() ?? 0,
       expires: expiryTime,

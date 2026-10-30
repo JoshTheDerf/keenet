@@ -4,6 +4,7 @@ import { t } from '@/i18n';
 import { useVaultStore } from '@/stores/vault';
 import { useClipboard } from '@/composables/useClipboard';
 import { isDesktop } from '@/composables/useDesktop';
+import { useOtpActions } from '@/composables/useOtp';
 import {
   runAutoType,
   sequenceToText,
@@ -16,6 +17,7 @@ const props = defineProps<{ entry: EntryVm }>();
 
 const vault = useVaultStore();
 const { copy } = useClipboard();
+const { currentCode } = useOtpActions();
 
 const open = ref(false);
 const sequence = ref(props.entry.autoType.sequence ?? '');
@@ -40,7 +42,7 @@ function commitSequence(): void {
   vault.setAutoType(props.entry.fileId, props.entry.id, { sequence: next });
 }
 
-function buildContext(): AutoTypeContext {
+async function buildContext(): Promise<AutoTypeContext> {
   const e = props.entry;
   const fileId = e.fileId;
   const fields: Record<string, string> = {};
@@ -51,17 +53,17 @@ function buildContext(): AutoTypeContext {
     password: vault.resolveReference(fileId, e.password),
     url: vault.resolveReference(fileId, e.url),
     notes: e.notes,
-    totp: '',
+    totp: await currentCode(e),
     fields
   };
 }
 
 async function run(): Promise<void> {
-  await runAutoType(effectiveSeq.value, buildContext());
+  await runAutoType(effectiveSeq.value, await buildContext());
 }
 
-function copySequence(): void {
-  void copy(sequenceToText(effectiveSeq.value, buildContext()), t('detAutoType'));
+async function copySequence(): Promise<void> {
+  void copy(sequenceToText(effectiveSeq.value, await buildContext()), t('detAutoType'));
 }
 </script>
 

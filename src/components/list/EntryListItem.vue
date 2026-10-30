@@ -2,6 +2,7 @@
 import { computed, useTemplateRef } from 'vue';
 import EntryIcon from '@/components/shared/EntryIcon.vue';
 import ColorDot from '@/components/shared/ColorDot.vue';
+import OtpChip from '@/components/otp/OtpChip.vue';
 import { t } from '@/i18n';
 import { hostOf } from '@/components/shared/format';
 import type { EntryVm } from '@/types';
@@ -102,7 +103,7 @@ defineExpose({
         icon="i-lucide-paperclip"
         :label="String(entry.attachments.length)"
       />
-      <UIcon v-if="entry.otp" name="i-lucide-clock" class="size-4 text-muted" />
+      <OtpChip v-if="entry.otp && !entry.inTrash" :entry="entry" />
       <UIcon
         v-if="entry.expired"
         name="i-lucide-triangle-alert"

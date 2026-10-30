@@ -3,6 +3,7 @@
 // which happy-dom does not fully implement — run this suite under Node.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initKdbxweb } from './kdbx-init';
+import { ProtectedValue } from 'kdbxweb';
 import { KdbxFile } from './kdbx-file';
 
 beforeAll(() => {
@@ -275,5 +276,71 @@ describe('KdbxFile entry-VM caching', () => {
     const vm2 = file.getAllEntries(true).find((e) => e.id === id)!;
     expect(vm2).not.toBe(vm1);
     expect(vm2.historyLength).toBe(historyBefore - 1);
+  });
+});
+
+describe('KdbxFile one-time codes', () => {
+  const URI = 'otpauth://totp/GitHub:alice?secret=JBSWY3DP&issuer=GitHub';
+
+  it('shows legacy OTP fields and replaces them with a protected otp field', async () => {
+    const file = await KdbxFile.create({ name: 'O', password: 'x' });
+    const id = file.createEntry().uuid.id;
+    file.setEntryField(id, 'TOTP Seed', 'JBSWY3DP');
+    file.setEntryField(id, 'TOTP Settings', '30;6');
+    const vm = file.getAllEntries().find((e) => e.id === id)!;
+    expect(vm.otp).toMatch(/^otpauth:\/\/totp\/.*secret=JBSWY3DP/);
+    expect(vm.fields.map((f) => f.name)).not.toContain('TOTP Seed');
+
+    file.setOtp(id, URI);
+    const entry = file.getEntry(id)!;
+    expect(entry.fields.has('TOTP Seed')).toBe(false);
+    expect(entry.fields.get('otp')).toBeInstanceOf(ProtectedValue);
+    file.setOtp(id, undefined);
+    expect(file.getAllEntries().find((e) => e.id === id)!.otp).toBeUndefined();
+  });
+
+  it("keeps KeePass 2's fields in step on entries that use them", async () => {
+    const file = await KdbxFile.create({ name: 'O', password: 'x' });
+    const id = file.createEntry().uuid.id;
+    file.setEntryField(id, 'HmacOtp-Secret-Base32', 'JBSWY3DP', true);
+    file.setEntryField(id, 'HmacOtp-Counter', '4');
+    file.advanceHotp(id);
+    const entry = file.getEntry(id)!;
+    expect(entry.fields.get('HmacOtp-Counter')).toBe('5');
+    expect(String(entry.fields.get('otp') && (entry.fields.get('otp') as ProtectedValue).getText())).toContain('counter=5');
+    file.setOtp(id, 'otpauth://totp/x?secret=GEZDGNBV&digits=8');
+    expect(entry.fields.has('HmacOtp-Counter')).toBe(false);
+    expect((entry.fields.get('TimeOtp-Secret-Base32') as ProtectedValue).getText()).toBe('GEZDGNBV');
+    expect(entry.fields.get('TimeOtp-Length')).toBe('8');
+  });
+
+  it('advances an HOTP counter', async () => {
+    const file = await KdbxFile.create({ name: 'O', password: 'x' });
+    const id = file.createEntry().uuid.id;
+    file.setOtp(id, 'otpauth://hotp/x?secret=JBSWY3DP&counter=2');
+    file.advanceHotp(id);
+    expect(file.getAllEntries().find((e) => e.id === id)!.otp).toContain('counter=3');
+  });
+
+  it('imports codes: attaches to a unique match, creates the rest, skips duplicates', async () => {
+    const file = await KdbxFile.create({ name: 'O', password: 'x' });
+    const id = file.createEntry().uuid.id;
+    file.setEntryField(id, 'Title', 'GitHub');
+    file.setEntryField(id, 'UserName', 'alice');
+    const tokens = [
+      { issuer: 'GitHub', account: 'alice', uri: URI },
+      { issuer: 'Bank', account: 'bob', uri: 'otpauth://totp/Bank:bob?secret=GEZDGNBV&issuer=Bank' },
+      { issuer: 'Bank', account: 'bob', uri: 'otpauth://totp/Bank:bob?secret=GEZDGNBV&issuer=Bank' }
+    ];
+    expect(file.planOtpImport(tokens).map((p) => p.action)).toEqual(['attach', 'new', 'skip']);
+    expect(file.planOtpImport(tokens, false).map((p) => p.action)).toEqual(['new', 'new', 'skip']);
+    expect(file.importOtpTokens(tokens)).toEqual({ added: 1, attached: 1, skipped: 1 });
+    const all = file.getAllEntries();
+    expect(all.find((e) => e.id === id)!.otp).toBe(URI);
+    const bank = all.find((e) => e.title === 'Bank')!;
+    expect(bank.username).toBe('bob');
+    expect(bank.otp).toContain('GEZDGNBV');
+    // a second import finds everything already there
+    expect(file.importOtpTokens(tokens)).toEqual({ added: 0, attached: 0, skipped: 3 });
   });
 });

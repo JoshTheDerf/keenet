@@ -13,6 +13,7 @@ const shortcuts = computed<Shortcut[]>(() => [
   { action: t('setShCreateEntry'), keys: ['Ctrl', 'N'] },
   { action: t('setShCopyPass'), keys: ['Ctrl', 'C'] },
   { action: t('setShCopyUser'), keys: ['Ctrl', 'B'] },
+  { action: t('otpShortcut'), keys: ['Ctrl', 'Shift', 'O'] },
   { action: t('setShLock'), keys: ['Ctrl', 'L'] },
   { action: t('setShGen'), keys: ['Ctrl', 'G'] },
   { action: t('setShSave'), keys: ['Ctrl', 'S'] },

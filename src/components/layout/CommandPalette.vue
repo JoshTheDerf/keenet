@@ -12,12 +12,14 @@ import { useVaultStore } from '@/stores/vault';
 import { useUiStore } from '@/stores/ui';
 import { useOverlays } from '@/composables/useOverlays';
 import { lockNow } from '@/composables/useLock';
+import { useOtpActions } from '@/composables/useOtp';
 import { iconClass } from '@/const/icons';
 import type { EntryVm } from '@/types';
 
 const vault = useVaultStore();
 const ui = useUiStore();
-const { commandPaletteOpen: open, auditOpen, importOpen } = useOverlays();
+const { commandPaletteOpen: open, auditOpen, importOpen, importMode } = useOverlays();
+const { copyOtp } = useOtpActions();
 
 function close(): void {
   open.value = false;
@@ -45,7 +47,31 @@ function goToEntry(entry: EntryVm): void {
 
 const actionItems = computed<CommandPaletteItem[]>(() => {
   const hasModified = vault.files.some((f) => f.modified);
+  const selected = vault.selectedEntry;
   return [
+    ...(selected?.otp
+      ? [
+          {
+            label: t('detMenuCopyOtp'),
+            icon: 'i-lucide-timer',
+            kbds: ['meta', 'shift', 'o'],
+            onSelect: run(() => void copyOtp(selected))
+          }
+        ]
+      : []),
+    {
+      label: t('otpCodes'),
+      icon: 'i-lucide-timer',
+      onSelect: run(() => vault.setSelection({ type: 'otp' }))
+    },
+    {
+      label: t('otpImportFreeOtp'),
+      icon: 'i-lucide-file-input',
+      onSelect: run(() => {
+        importMode.value = 'otp';
+        importOpen.value = true;
+      })
+    },
     {
       label: t('cmdNewEntry'),
       icon: 'i-lucide-plus',

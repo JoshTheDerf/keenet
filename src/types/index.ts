@@ -39,7 +39,8 @@ export interface EntryVm {
   /** entry background color mapped to a named palette color, if any */
   color?: string;
   attachments: AttachmentVm[];
-  otp?: string; // otpauth uri or bare secret
+  /** otpauth URI (or bare secret / KeeOTP string), read from any supported OTP convention */
+  otp?: string;
   created: number;
   updated: number;
   expires?: number;
@@ -133,7 +134,8 @@ export type MenuSelection =
   | { type: 'trash'; fileId?: string }
   | { type: 'tag'; tag: string }
   | { type: 'color'; color: string }
-  | { type: 'expired' };
+  | { type: 'expired' }
+  | { type: 'otp' };
 
 export type SortField = 'title' | 'username' | 'url' | 'created' | 'updated' | 'expires';
 export type SortDir = 'asc' | 'desc';

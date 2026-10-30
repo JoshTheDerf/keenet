@@ -55,6 +55,12 @@ const touchInput = {
   trailingIcon: 'max-md:size-6'
 };
 const touchInputSizes = Object.fromEntries(TOUCH_SIZES.map((s) => [s, touchInput]));
+// max-md:px-3 above also overrides the room the theme leaves for a leading or
+// trailing icon (ps-9 etc.), so text ran under the icon; restore it at xl size.
+const touchInputIcons = [
+  { leading: true, class: 'max-md:ps-11' },
+  { trailing: true, class: 'max-md:pe-11' }
+];
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -94,12 +100,12 @@ export default defineConfig(({ mode }) => {
           variants: { size: touchButtonSizes },
           compoundVariants: touchSquareButtons
         },
-        input: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes } },
-        inputNumber: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes } },
-        inputMenu: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes } },
-        textarea: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes } },
-        select: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes } },
-        selectMenu: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes } },
+        input: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes }, compoundVariants: touchInputIcons },
+        inputNumber: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes }, compoundVariants: touchInputIcons },
+        inputMenu: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes }, compoundVariants: touchInputIcons },
+        textarea: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes }, compoundVariants: touchInputIcons },
+        select: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes }, compoundVariants: touchInputIcons },
+        selectMenu: { defaultVariants: { size: 'lg' }, variants: { size: touchInputSizes }, compoundVariants: touchInputIcons },
         checkbox: { defaultVariants: { size: 'lg' } },
         radioGroup: { defaultVariants: { size: 'lg' } },
         switch: { defaultVariants: { size: 'lg' } },

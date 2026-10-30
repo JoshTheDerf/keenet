@@ -13,12 +13,14 @@ import EntryDetails from '@/components/details/EntryDetails.vue';
 import GeneratorModal from '@/components/generator/GeneratorModal.vue';
 import CommandPalette from '@/components/layout/CommandPalette.vue';
 import { useClipboard } from '@/composables/useClipboard';
+import { useOtpActions } from '@/composables/useOtp';
 import { useAutoSave } from '@/composables/useAutoSave';
 import { useLock } from '@/composables/useLock';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 
 const vault = useVaultStore();
 const { copy } = useClipboard();
+const { currentCode } = useOtpActions();
 useAutoSave();
 useLock();
 useKeyboardShortcuts();
@@ -62,7 +64,7 @@ function backToList(): void {
 let unsubAutoType: (() => void) | undefined;
 onMounted(() => {
   if (!isDesktop()) return;
-  unsubAutoType = desktop()?.on('auto-type-request', () => {
+  unsubAutoType = desktop()?.on('auto-type-request', async () => {
     const entry = vault.selectedEntry;
     if (!entry) return;
     const ctx: AutoTypeContext = {
@@ -71,6 +73,7 @@ onMounted(() => {
       password: vault.resolveReference(entry.fileId, entry.password),
       url: entry.url,
       notes: entry.notes,
+      totp: await currentCode(entry),
       fields: Object.fromEntries(entry.fields.map((f) => [f.name, f.value]))
     };
     void runAutoType(vault.getEffectiveAutoTypeSeq(entry.fileId, entry.id), ctx);

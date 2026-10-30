@@ -6,6 +6,7 @@ import { onMounted, onUnmounted } from 'vue';
 import { useVaultStore } from '@/stores/vault';
 import { useUiStore } from '@/stores/ui';
 import { useClipboard } from '@/composables/useClipboard';
+import { useOtpActions } from '@/composables/useOtp';
 import { lockNow } from '@/composables/useLock';
 import { toggleCommandPalette } from '@/composables/useOverlays';
 import { t } from '@/i18n';
@@ -21,6 +22,7 @@ export function useKeyboardShortcuts(): void {
   const vault = useVaultStore();
   const ui = useUiStore();
   const { copy } = useClipboard();
+  const { copyOtp } = useOtpActions();
 
   function handler(e: KeyboardEvent): void {
     if (ui.screen !== 'app') return;
@@ -68,6 +70,12 @@ export function useKeyboardShortcuts(): void {
     if (mod && e.key.toLowerCase() === 'b' && entry) {
       e.preventDefault();
       void copy(vault.resolveReference(entry.fileId, entry.username), t('user'));
+      return;
+    }
+    if (mod && e.shiftKey && e.key.toLowerCase() === 'o') {
+      e.preventDefault();
+      if (entry?.otp) void copyOtp(entry);
+      else vault.setSelection({ type: 'otp' });
       return;
     }
     if (mod && e.key.toLowerCase() === 'c' && entry && !inEditable(e.target) && !window.getSelection()?.toString()) {

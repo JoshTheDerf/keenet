@@ -12,6 +12,7 @@ import { checkManyPwned } from '@/domain/hibp';
 import { exportToHtml } from '@/domain/kdbx-to-html';
 import { DEFAULT_SEQUENCE } from '@/domain/auto-type';
 import type { CsvEntryData } from '@/domain/csv';
+import type { ImportedToken } from '@/domain/otp-import';
 import { useSettingsStore } from '@/stores/settings';
 import { useUiStore } from '@/stores/ui';
 import { t } from '@/i18n';
@@ -471,6 +472,14 @@ export const useVaultStore = defineStore('vault', () => {
     withFile(fileId, (f) => f.removeField(entryId, name));
   }
 
+  function setOtp(fileId: string, entryId: string, uri: string | undefined): void {
+    withFile(fileId, (f) => f.setOtp(entryId, uri));
+  }
+
+  function advanceHotp(fileId: string, entryId: string): void {
+    withFile(fileId, (f) => f.advanceHotp(entryId));
+  }
+
   function setTags(fileId: string, entryId: string, tags: string[]): void {
     withFile(fileId, (f) => f.setEntryTags(entryId, tags));
   }
@@ -593,6 +602,26 @@ export const useVaultStore = defineStore('vault', () => {
     bump();
     useUiStore().notify(t('appImportedEntries', count), { color: 'success' });
     return count;
+  }
+
+  function planOtpImport(fileId: string, tokens: ImportedToken[], attach: boolean) {
+    return findFile(fileId)?.planOtpImport(tokens, attach) ?? [];
+  }
+
+  function importOtp(fileId: string, tokens: ImportedToken[], attach: boolean): number {
+    const file = findFile(fileId);
+    if (!file) return 0;
+    const r = file.importOtpTokens(tokens, currentGroupId(), attach);
+    bump();
+    const done = r.added + r.attached;
+    useUiStore().notify(t('otpImported', done), {
+      color: done ? 'success' : 'info',
+      description: [
+        r.attached ? t('otpImportedAttached', r.attached) : '',
+        r.skipped ? t('otpImportedSkipped', r.skipped) : ''
+      ].filter(Boolean).join(' ') || undefined
+    });
+    return done;
   }
 
   async function importDatabase(
@@ -751,6 +780,10 @@ export const useVaultStore = defineStore('vault', () => {
     createEntry,
     createGroup,
     updateField,
+    setOtp,
+    advanceHotp,
+    importOtp,
+    planOtpImport,
     renameField,
     removeField,
     setTags,

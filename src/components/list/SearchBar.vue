@@ -70,6 +70,12 @@ function newEntry(): void {
   vault.createEntry();
 }
 
+// one tap between everything and just the one-time codes
+const otpView = computed(() => vault.selection.type === 'otp');
+function toggleOtpView(): void {
+  vault.setSelection(otpView.value ? { type: 'all' } : { type: 'otp' });
+}
+
 const caseSensitive = computed({
   get: () => vault.search.caseSensitive ?? false,
   set: (v: boolean) => vault.setSearch({ caseSensitive: v })
@@ -112,6 +118,18 @@ const includeProtected = computed({
         </span>
       </template>
     </UInput>
+
+    <UTooltip :text="otpView ? t('menuAllItems') : t('otpCodes')">
+      <UButton
+        :color="otpView ? 'primary' : 'neutral'"
+        :variant="otpView ? 'soft' : 'ghost'"
+        icon="i-lucide-timer"
+        :aria-label="t('otpCodes')"
+        :aria-pressed="otpView"
+        data-testid="otp-toggle"
+        @click="toggleOtpView"
+      />
+    </UTooltip>
 
     <UTooltip :text="t('searchAddNew')" :kbds="['meta', 'n']">
       <UButton

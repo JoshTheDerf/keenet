@@ -19,7 +19,10 @@ const expiredCount = computed(
 );
 const hasExpired = computed(() => expiredCount.value > 0);
 
+const otpCount = computed(() => vault.allEntries.filter((e) => e.otp && !e.inTrash).length);
+
 const isAllActive = computed(() => vault.selection.type === 'all');
+const isOtpActive = computed(() => vault.selection.type === 'otp');
 const isExpiredActive = computed(() => vault.selection.type === 'expired');
 const isTrashActive = computed(() => vault.selection.type === 'trash');
 
@@ -130,6 +133,21 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
         <UIcon name="i-lucide-layout-grid" class="size-4 shrink-0" />
         <span class="flex-1 truncate">{{ t('menuAllItems') }}</span>
         <UBadge v-if="allCount" :label="String(allCount)" color="neutral" variant="soft" size="sm" />
+      </div>
+
+      <!-- One-time codes -->
+      <div
+        :class="[rowBase, isOtpActive ? rowActive : rowInactive]"
+        role="button"
+        tabindex="0"
+        :aria-current="isOtpActive ? 'true' : undefined"
+        data-testid="menu-otp"
+        @click="vault.setSelection({ type: 'otp' })"
+        @keydown="rowKeyActivate($event, () => vault.setSelection({ type: 'otp' }))"
+      >
+        <UIcon name="i-lucide-timer" class="size-4 shrink-0" />
+        <span class="flex-1 truncate">{{ t('otpCodes') }}</span>
+        <UBadge v-if="otpCount" :label="String(otpCount)" color="neutral" variant="soft" size="sm" />
       </div>
 
       <!-- Expired -->

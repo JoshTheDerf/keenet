@@ -50,6 +50,8 @@ export function applyMenuFilter(entries: EntryVm[], selection: MenuSelection): E
       return entries.filter((e) => !e.inTrash && e.color === selection.color);
     case 'expired':
       return entries.filter((e) => !e.inTrash && e.expired);
+    case 'otp':
+      return entries.filter((e) => !e.inTrash && !!e.otp);
     default:
       return entries;
   }
