@@ -1,9 +1,25 @@
 @import 'tailwindcss';
 @import '@nuxt/ui';
+@import '@fontsource-variable/lexend/wght.css';
 @import './themes.css';
 
 /* Source files Tailwind should scan for class usage. */
 @source '../../src/**/*.{vue,ts}';
+
+/*
+ * Shared look with Drive and the other thederf apps: spruce (primary) over
+ * sage greys, Lexend (bundled, so it works offline and in the desktop app).
+ * The default themes use these; the other themes override them in themes.css.
+ */
+@theme static {
+  --font-sans: 'Lexend Variable', ui-sans-serif, system-ui, sans-serif;
+  --color-spruce-50: #eef7f3; --color-spruce-100: #d5ede3; --color-spruce-200: #addbc9; --color-spruce-300: #7cc2aa;
+  --color-spruce-400: #4fa68b; --color-spruce-500: #2f8a70; --color-spruce-600: #22735d; --color-spruce-700: #1e5e4d;
+  --color-spruce-800: #1b4b3f; --color-spruce-900: #183e35; --color-spruce-950: #0b231d;
+  --color-sage-50: #f5f7f6; --color-sage-100: #ebefed; --color-sage-200: #d9e0dc; --color-sage-300: #bcc6c1;
+  --color-sage-400: #93a09a; --color-sage-500: #65736d; --color-sage-600: #55625c; --color-sage-700: #434e49;
+  --color-sage-800: #2a3330; --color-sage-900: #1a2220; --color-sage-950: #111816;
+}
 
 /*
  * KeeWeb theme surface. Nuxt UI drives its own design tokens; we layer a small
@@ -11,7 +27,7 @@
  * be themed consistently in both light and dark modes.
  */
 :root {
-  --kw-titlebar-h: 3rem;
+  --kw-titlebar-h: 3.5rem;
   --kw-menu-w: 15rem;
   --kw-list-w: 22rem;
   --kw-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
@@ -33,6 +49,48 @@ body,
 
 body {
   overscroll-behavior: none;
+  background: var(--app-canvas);
+}
+
+/*
+ * Layout surfaces: the title bar and menu sit on a tinted canvas; the list and
+ * the entry live on a raised sheet (--ui-bg). Themes that don't set a canvas
+ * use their muted background (type selector: loses to the theme classes).
+ */
+html {
+  --app-canvas: var(--ui-bg-muted);
+}
+
+@layer components {
+  /* menu rows and other navigation: soft pills, tinted when active */
+  .nav-pill {
+    @apply w-full flex items-center gap-3 px-3 h-9 max-md:h-11 max-md:text-base rounded-full text-sm text-left text-default cursor-pointer transition-colors;
+  }
+  .nav-pill:hover {
+    background: color-mix(in oklab, var(--ui-text) 7%, transparent);
+  }
+  .nav-pill:focus-visible {
+    @apply outline-2 -outline-offset-2 outline-primary;
+  }
+  .nav-pill.is-active {
+    @apply font-semibold text-highlighted;
+    background: color-mix(in oklab, var(--ui-primary) 20%, transparent);
+  }
+  /* the sidebar's "New entry" button */
+  .new-button {
+    @apply inline-flex items-center gap-3 h-12 pl-4 pr-6 rounded-2xl bg-default text-base font-semibold text-highlighted transition-shadow cursor-pointer;
+    box-shadow: 0 1px 2px rgb(20 40 34 / 0.18), 0 1px 3px 1px rgb(20 40 34 / 0.08);
+  }
+  .new-button:hover {
+    box-shadow: 0 1px 3px rgb(20 40 34 / 0.22), 0 4px 8px 3px rgb(20 40 34 / 0.1);
+  }
+  .new-button:focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
+  }
+  .dark .new-button {
+    @apply bg-elevated;
+    box-shadow: none;
+  }
 }
 
 /*

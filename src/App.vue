@@ -44,7 +44,7 @@ function toastActions(toast: Toast): ButtonProps[] | undefined {
 
 <template>
   <UApp>
-    <div class="h-full w-full bg-default text-default overflow-hidden">
+    <div class="h-full w-full text-default overflow-hidden">
       <OpenScreen v-if="ui.screen === 'open'" />
       <AppShell v-else-if="ui.screen === 'app'" />
       <SettingsScreen v-else-if="ui.screen === 'settings'" />

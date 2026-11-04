@@ -9,8 +9,20 @@ import { colorLabel } from '@/components/shared/format';
 import MenuGroupNode from '@/components/menu/MenuGroupNode.vue';
 import ConfirmModal from '@/components/shared/ConfirmModal.vue';
 import TextPromptModal from '@/components/shared/TextPromptModal.vue';
+import { useUiStore } from '@/stores/ui';
+import { useOverlays } from '@/composables/useOverlays';
 
 const vault = useVaultStore();
+const ui = useUiStore();
+const { auditOpen, otpSetupOpen } = useOverlays();
+
+const issueCount = computed(() => vault.auditIssues.length);
+
+/** The big button adds what the current view lists: an entry, or a one-time code. */
+function onNew(): void {
+  if (vault.selection.type === 'otp') otpSetupOpen.value = true;
+  else vault.createEntry();
+}
 
 const allCount = computed(() => vault.allEntries.filter((e) => !e.inTrash).length);
 
@@ -103,10 +115,10 @@ const trashItems = computed<DropdownMenuItem[]>(() =>
   }))
 );
 
-const rowBase =
-  'flex items-center gap-2 px-2 py-1.5 max-md:min-h-11 max-md:text-base rounded-md cursor-pointer text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
-const rowInactive = 'text-muted hover:text-default hover:bg-elevated';
-const rowActive = 'bg-primary/10 text-primary';
+const rowBase = 'nav-pill';
+const rowInactive = '';
+const rowActive = 'is-active';
+const heading = 'px-3 pb-1 text-sm font-medium text-muted truncate';
 
 /** Enter/Space activates a row (ignoring keys bubbling from inner buttons). */
 function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
@@ -119,7 +131,15 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
 </script>
 
 <template>
-  <nav class="flex flex-col gap-4 p-2">
+  <nav class="flex flex-col gap-5 min-h-full px-3 pt-1 pb-3">
+    <!-- New entry (phones use the floating button) -->
+    <div class="max-md:hidden">
+      <button v-if="vault.hasFiles" type="button" class="new-button" data-testid="new-button" @click="onNew">
+        <UIcon :name="vault.selection.type === 'otp' ? 'i-lucide-scan-line' : 'i-lucide-plus'" class="size-6 text-primary" />
+        {{ vault.selection.type === 'otp' ? t('otpScanQr') : t('cmdNewEntry') }}
+      </button>
+    </div>
+
     <!-- All entries -->
     <div class="flex flex-col gap-0.5">
       <div
@@ -130,9 +150,9 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
         @click="vault.setSelection({ type: 'all' })"
         @keydown="rowKeyActivate($event, () => vault.setSelection({ type: 'all' }))"
       >
-        <UIcon name="i-lucide-layout-grid" class="size-4 shrink-0" />
+        <UIcon name="i-lucide-layout-grid" class="size-5 shrink-0" />
         <span class="flex-1 truncate">{{ t('menuAllItems') }}</span>
-        <UBadge v-if="allCount" :label="String(allCount)" color="neutral" variant="soft" size="sm" />
+        <span v-if="allCount" class="text-xs text-muted tabular-nums">{{ allCount }}</span>
       </div>
 
       <!-- One-time codes -->
@@ -145,9 +165,9 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
         @click="vault.setSelection({ type: 'otp' })"
         @keydown="rowKeyActivate($event, () => vault.setSelection({ type: 'otp' }))"
       >
-        <UIcon name="i-lucide-timer" class="size-4 shrink-0" />
+        <UIcon name="i-lucide-timer" class="size-5 shrink-0" />
         <span class="flex-1 truncate">{{ t('otpCodes') }}</span>
-        <UBadge v-if="otpCount" :label="String(otpCount)" color="neutral" variant="soft" size="sm" />
+        <span v-if="otpCount" class="text-xs text-muted tabular-nums">{{ otpCount }}</span>
       </div>
 
       <!-- Expired -->
@@ -160,19 +180,15 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
         @click="vault.setSelection({ type: 'expired' })"
         @keydown="rowKeyActivate($event, () => vault.setSelection({ type: 'expired' }))"
       >
-        <UIcon name="i-lucide-triangle-alert" class="size-4 shrink-0 text-warning" />
+        <UIcon name="i-lucide-triangle-alert" class="size-5 shrink-0 text-warning" />
         <span class="flex-1 truncate">{{ t('menuExpired') }}</span>
-        <UBadge :label="String(expiredCount)" color="warning" variant="soft" size="sm" />
+        <span class="text-xs text-warning tabular-nums">{{ expiredCount }}</span>
       </div>
     </div>
 
     <!-- Groups trees -->
     <div v-for="ft in vault.groupTrees" :key="ft.file.id" class="flex flex-col gap-0.5">
-      <div class="flex items-center gap-1.5 px-2 pt-1 pb-0.5">
-        <span class="text-xs font-semibold uppercase tracking-wide text-dimmed truncate">
-          {{ ft.file.name }}
-        </span>
-      </div>
+      <div :class="heading">{{ ft.file.name }}</div>
       <div role="tree" :aria-label="ft.file.name">
         <MenuGroupNode :group="ft.tree" :file-id="ft.file.id" :depth="0" />
       </div>
@@ -180,9 +196,7 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
 
     <!-- Tags -->
     <div v-if="vault.tags.length" class="flex flex-col gap-0.5">
-      <div class="px-2 pb-0.5 text-xs font-semibold uppercase tracking-wide text-dimmed">
-        {{ t('tags') }}
-      </div>
+      <div :class="[heading, 'first-letter:uppercase']">{{ t('tags') }}</div>
       <div
         v-for="tag in vault.tags"
         :key="tag"
@@ -193,7 +207,7 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
         @click="vault.setSelection({ type: 'tag', tag })"
         @keydown="rowKeyActivate($event, () => vault.setSelection({ type: 'tag', tag }))"
       >
-        <UIcon name="i-lucide-tag" class="size-4 shrink-0" />
+        <UIcon name="i-lucide-tag" class="size-5 shrink-0" />
         <span class="flex-1 truncate">{{ tag }}</span>
         <UDropdownMenu :items="tagMenuItems(tag)" :content="{ align: 'start' }">
           <UButton
@@ -211,10 +225,8 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
 
     <!-- Colors -->
     <div class="flex flex-col gap-1">
-      <div class="px-2 text-xs font-semibold uppercase tracking-wide text-dimmed">
-        {{ t('menuColors') }}
-      </div>
-      <div class="flex items-center gap-1.5 px-2 py-1">
+      <div :class="[heading, 'first-letter:uppercase']">{{ t('menuColors') }}</div>
+      <div class="flex items-center gap-2 px-3 py-1">
         <button
           v-for="color in ALL_COLORS"
           :key="color"
@@ -239,7 +251,7 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
         @click="vault.setSelection({ type: 'trash' })"
         @keydown="rowKeyActivate($event, () => vault.setSelection({ type: 'trash' }))"
       >
-        <UIcon name="i-lucide-trash" class="size-4 shrink-0" />
+        <UIcon name="i-lucide-trash" class="size-5 shrink-0" />
         <span class="flex-1 truncate">{{ t('menuTrash') }}</span>
       </div>
       <UDropdownMenu
@@ -255,6 +267,23 @@ function rowKeyActivate(e: KeyboardEvent, fn: () => void): void {
           :aria-label="t('options')"
         />
       </UDropdownMenu>
+    </div>
+
+    <!-- Tools, pinned to the bottom on desktop (phones have the bottom bar) -->
+    <div class="mt-auto flex flex-col gap-0.5 max-md:hidden">
+      <button type="button" class="nav-pill" @click="vault.generatorOpen = true">
+        <UIcon name="i-lucide-dices" class="size-5 shrink-0" />
+        <span class="flex-1 truncate">{{ t('mobileNavGenerator') }}</span>
+      </button>
+      <button type="button" class="nav-pill" :disabled="!vault.hasFiles" @click="auditOpen = true">
+        <UIcon name="i-lucide-shield-check" class="size-5 shrink-0" />
+        <span class="flex-1 truncate">{{ t('cmdPasswordAudit') }}</span>
+        <span v-if="issueCount" class="text-xs text-warning tabular-nums">{{ issueCount }}</span>
+      </button>
+      <button type="button" class="nav-pill" @click="ui.openSettings()">
+        <UIcon name="i-lucide-settings" class="size-5 shrink-0" />
+        <span class="flex-1 truncate">{{ t('settings') }}</span>
+      </button>
     </div>
 
     <!-- Empty trash (permanent) -->

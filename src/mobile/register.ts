@@ -167,10 +167,24 @@ export async function initMobile(): Promise<void> {
     authorize: (authUrl) => mobileAuthorize(authUrl)
   });
 
-  // Status bar styling.
+  // Status bar: the app's canvas colour, following the theme (useTheme sets
+  // the classes on <html>).
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar');
-    await StatusBar.setStyle({ style: Style.Dark });
+    const root = document.documentElement;
+    const sync = (): void => {
+      const color = getComputedStyle(document.body).backgroundColor;
+      const dark = root.classList.contains('dark');
+      void StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light });
+      // setBackgroundColor wants #rrggbb
+      const m = color.match(/\d+/g);
+      if (m && m.length >= 3) {
+        const hex = '#' + m.slice(0, 3).map((n) => Number(n).toString(16).padStart(2, '0')).join('');
+        void StatusBar.setBackgroundColor({ color: hex });
+      }
+    };
+    sync();
+    new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ['class'] });
   } catch {
     /* status bar not available on this platform */
   }

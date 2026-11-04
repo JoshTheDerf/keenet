@@ -34,10 +34,10 @@ onUnmounted(() => clearTimeout(timer));
 </script>
 
 <template>
-  <div class="flex items-center gap-1 rounded-xl bg-elevated/50 active:bg-elevated">
+  <div class="flex items-center gap-1 pr-1 rounded-2xl bg-elevated/50 hover:bg-elevated/80 active:bg-elevated transition-colors">
     <button
       type="button"
-      class="flex-1 min-w-0 flex items-center gap-3 px-3 py-2.5 text-left rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      class="flex-1 min-w-0 flex items-center gap-3 px-4 py-3 text-left rounded-2xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       :aria-label="t('detCopyField', label)"
       data-testid="read-row"
       @click="onCopy"

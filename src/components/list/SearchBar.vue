@@ -103,16 +103,6 @@ function clearSearch(): void {
   vault.setSearch({ text: '' });
 }
 
-function newEntry(): void {
-  vault.createEntry();
-}
-
-// one tap between everything and just the one-time codes
-const otpView = computed(() => vault.selection.type === 'otp');
-function toggleOtpView(): void {
-  vault.setSelection(otpView.value ? { type: 'all' } : { type: 'otp' });
-}
-
 // Keys in the search box drive the list: arrows pick an entry, Enter opens the
 // first match, Escape clears.
 function onSearchKeydown(e: KeyboardEvent): void {
@@ -136,11 +126,13 @@ function onSearchKeydown(e: KeyboardEvent): void {
 </script>
 
 <template>
-  <div class="flex items-center gap-1.5 p-2 border-b border-default">
+  <div class="flex items-center gap-1.5 px-3 pt-3 pb-2">
     <UInput
       ref="searchInput"
       :model-value="vault.search.text ?? ''"
       icon="i-lucide-search"
+      variant="soft"
+      :ui="{ base: 'rounded-full bg-elevated/70 focus:bg-default focus:ring-1 focus:ring-accented' }"
       :placeholder="t('search')"
       autocomplete="off"
       spellcheck="false"
@@ -164,29 +156,6 @@ function onSearchKeydown(e: KeyboardEvent): void {
         </span>
       </template>
     </UInput>
-
-    <UTooltip :text="otpView ? t('menuAllItems') : t('otpCodes')">
-      <UButton
-        :color="otpView ? 'primary' : 'neutral'"
-        :variant="otpView ? 'soft' : 'ghost'"
-        icon="i-lucide-timer"
-        :aria-label="t('otpCodes')"
-        :aria-pressed="otpView"
-        class="max-md:hidden"
-        data-testid="otp-toggle"
-        @click="toggleOtpView"
-      />
-    </UTooltip>
-
-    <UTooltip :text="t('searchAddNew')" :kbds="['meta', 'n']">
-      <UButton
-        color="primary"
-        icon="i-lucide-plus"
-        class="max-md:hidden"
-        :aria-label="t('searchAddNew')"
-        @click="newEntry"
-      />
-    </UTooltip>
 
     <UDropdownMenu :items="viewItems" :content="{ align: 'end' }">
       <UTooltip :text="`${t('searchViewOptions')}: ${currentSortLabel}`">

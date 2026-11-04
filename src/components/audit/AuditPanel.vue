@@ -157,7 +157,7 @@ function openEntry(id: string): void {
         <!-- Grouped issues -->
         <div v-else class="flex flex-col gap-4">
           <section v-for="group in groups" :key="group.kind" class="flex flex-col gap-1.5">
-            <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">
+            <h3 class="text-sm font-medium text-muted">
               {{ group.label }} ({{ group.issues.length }})
             </h3>
             <template v-for="(issue, idx) in group.issues" :key="`${issue.kind}-${issue.entryId}-${idx}`">

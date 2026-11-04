@@ -20,9 +20,9 @@ const emit = defineEmits<{ toggleMenu: [] }>();
 const { commandPaletteOpen, auditOpen, importOpen } = useOverlays();
 const issueCount = computed(() => vault.auditIssues.length);
 
-// Phone width: the generator and audit buttons move into the overflow menu so
-// the bar doesn't scroll sideways.
-const compact = useMediaQuery('(max-width: 639px)');
+// Desktop keeps generator, audit and settings at the bottom of the menu; on
+// phones they sit in the overflow menu (and the bottom bar) instead.
+const compact = useMediaQuery('(max-width: 767px)');
 
 /** File whose contents the current selection belongs to (falls back to first). */
 const activeFileId = computed<string | undefined>(() => {
@@ -71,10 +71,6 @@ async function onSave(): Promise<void> {
 
 function onGenerate(): void {
   vault.generatorOpen = true;
-}
-
-function onSettings(): void {
-  ui.openSettings();
 }
 
 function onLock(): void {
@@ -131,7 +127,7 @@ const overflowItems = computed<DropdownMenuItem[]>(() => [
 
 <template>
   <header
-    class="flex items-center gap-2 sm:gap-3 h-[var(--kw-titlebar-h)] shrink-0 px-2 sm:px-3 border-b border-default bg-elevated/40 select-none"
+    class="flex items-center gap-2 sm:gap-3 h-[var(--kw-titlebar-h)] shrink-0 px-2 sm:px-3 md:pl-5 select-none"
   >
     <!-- Mobile menu toggle -->
     <UButton
@@ -144,13 +140,13 @@ const overflowItems = computed<DropdownMenuItem[]>(() => [
       @click="emit('toggleMenu')"
     />
 
-    <!-- Wordmark (dropped on phones when file tabs need the room) -->
+    <!-- Wordmark, as wide as the menu below it (dropped on phones when file tabs need the room) -->
     <div
-      class="items-center gap-1.5 font-semibold tracking-tight"
+      class="items-center gap-2.5 shrink-0 md:w-[calc(16rem-1.25rem)]"
       :class="vault.files.length ? 'hidden sm:flex' : 'flex'"
     >
-      <KeeNetLogo class="size-5 shrink-0" />
-      <span class="text-sm">KeeNet</span>
+      <KeeNetLogo class="size-7 shrink-0" />
+      <span class="text-lg font-semibold tracking-tight text-highlighted">KeeNet</span>
     </div>
 
     <!-- Open files (tabs) -->
@@ -158,11 +154,11 @@ const overflowItems = computed<DropdownMenuItem[]>(() => [
       <div
         v-for="f in vault.files"
         :key="f.id"
-        class="group flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-md text-xs whitespace-nowrap transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        class="group flex items-center gap-1.5 pl-3 pr-1 h-8 rounded-full text-sm whitespace-nowrap transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         :class="
           f.id === activeFileId
-            ? 'bg-primary/10 text-primary'
-            : 'text-muted hover:text-default hover:bg-elevated'
+            ? 'bg-default text-highlighted font-medium shadow-[0_0_0_1px_var(--ui-border)]'
+            : 'text-muted hover:text-default hover:bg-default/60'
         "
         role="button"
         tabindex="0"
@@ -171,7 +167,7 @@ const overflowItems = computed<DropdownMenuItem[]>(() => [
         @keydown.enter.self="selectFile(f.id)"
         @keydown.space.self.prevent="selectFile(f.id)"
       >
-        <UIcon name="i-lucide-database" class="size-3.5 shrink-0" />
+        <UIcon name="i-lucide-lock-keyhole" class="size-4 shrink-0 text-primary" />
         <span class="truncate max-w-[10rem]">{{ f.name }}</span>
         <span v-if="f.modified" class="text-primary shrink-0" :title="t('unsaved')">&bull;</span>
         <UButton
@@ -202,51 +198,17 @@ const overflowItems = computed<DropdownMenuItem[]>(() => [
 
     <!-- Actions -->
     <div class="flex items-center gap-0.5">
-      <UTooltip :text="t('setFileSave')" :kbds="['meta', 's']">
+      <UTooltip v-if="hasModified" :text="t('setFileSave')" :kbds="['meta', 's']">
         <UButton
           icon="i-lucide-save"
-          color="neutral"
-          variant="ghost"
+          color="primary"
+          variant="soft"
           size="sm"
+          :label="compact ? undefined : t('setFileSave')"
           :loading="saving"
-          :disabled="!hasModified || saving"
-          :class="hasModified ? '' : 'max-md:hidden'"
+          :disabled="saving"
           :aria-label="t('setFileSave')"
           @click="onSave"
-        />
-      </UTooltip>
-      <UTooltip v-if="!compact" :text="t('cmdGeneratePassword')" :kbds="['meta', 'g']">
-        <UButton
-          icon="i-lucide-key"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          :aria-label="t('cmdGeneratePassword')"
-          @click="onGenerate"
-        />
-      </UTooltip>
-      <UTooltip v-if="!compact" :text="t('cmdPasswordAudit')">
-        <UChip :show="issueCount > 0" :text="issueCount" size="2xl" color="warning">
-          <UButton
-            icon="i-lucide-shield-alert"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            :disabled="!vault.hasFiles"
-            :aria-label="t('cmdPasswordAudit')"
-            @click="auditOpen = true"
-          />
-        </UChip>
-      </UTooltip>
-      <UTooltip :text="t('settings')" :kbds="['meta', ',']">
-        <UButton
-          icon="i-lucide-settings"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          class="max-md:hidden"
-          :aria-label="t('settings')"
-          @click="onSettings"
         />
       </UTooltip>
       <UTooltip :text="t('footerTitleLock')" :kbds="['meta', 'l']">

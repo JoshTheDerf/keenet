@@ -91,11 +91,9 @@ const menuItems = computed<DropdownMenuItem[]>(() => [
 <template>
   <div>
     <div
-      class="group flex items-center gap-1.5 pr-1 py-1 max-md:min-h-11 max-md:text-base rounded-md cursor-pointer text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      :class="
-        isActive ? 'bg-primary/10 text-primary' : 'text-muted hover:text-default hover:bg-elevated'
-      "
-      :style="{ paddingLeft: `${0.25 + depth * 0.75}rem` }"
+      class="group nav-pill gap-2 pr-1"
+      :class="{ 'is-active': isActive }"
+      :style="{ paddingLeft: `${0.25 + depth * 1}rem` }"
       role="treeitem"
       tabindex="0"
       :aria-selected="isActive"
@@ -107,7 +105,7 @@ const menuItems = computed<DropdownMenuItem[]>(() => [
     >
       <button
         type="button"
-        class="shrink-0 flex items-center justify-center size-4 max-md:size-8 rounded hover:bg-accented/50"
+        class="shrink-0 flex items-center justify-center size-6 max-md:size-8 rounded-full hover:bg-accented/50"
         :class="{ invisible: !childGroups.length }"
         :aria-label="t('menuToggleGroup')"
         @click="toggle"
@@ -118,16 +116,10 @@ const menuItems = computed<DropdownMenuItem[]>(() => [
         />
       </button>
 
-      <EntryIcon :icon="group.icon" size="0.95rem" />
+      <EntryIcon :icon="group.icon" size="1.1rem" />
       <span class="flex-1 truncate">{{ group.name }}</span>
 
-      <UBadge
-        v-if="group.totalEntryCount"
-        :label="String(group.totalEntryCount)"
-        color="neutral"
-        variant="soft"
-        size="sm"
-      />
+      <span v-if="group.totalEntryCount" class="text-xs text-muted tabular-nums">{{ group.totalEntryCount }}</span>
 
       <UTooltip :text="t('menuNewSubgroup')">
         <UButton

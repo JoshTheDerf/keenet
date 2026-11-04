@@ -92,11 +92,11 @@ onUnmounted(() => unsubAutoType?.());
     <TitleBar @toggle-menu="menuOpen = !menuOpen" />
 
     <div class="relative flex flex-1 min-h-0">
-      <!-- Left menu: static column on desktop, slide-in drawer on mobile -->
+      <!-- Left menu: on the canvas on desktop, a slide-in drawer on mobile -->
       <aside
         ref="drawer"
         tabindex="-1"
-        class="bg-elevated border-r border-default overflow-y-auto z-40 w-64 shrink-0 md:static md:w-60 md:translate-x-0 fixed inset-y-0 left-0 transition-transform duration-200 outline-none"
+        class="bg-[var(--app-canvas)] overflow-y-auto z-40 w-72 shrink-0 md:static md:w-64 md:translate-x-0 fixed inset-y-0 left-0 transition-transform duration-200 outline-none"
         :class="menuOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0'"
         @keydown.escape="menuOpen = false"
       >
@@ -110,24 +110,29 @@ onUnmounted(() => unsubAutoType?.());
         @click="menuOpen = false"
       />
 
-      <!-- Entry list -->
-      <section
-        class="border-r border-default flex-col min-h-0 md:flex md:w-[340px] md:shrink-0"
-        :class="isMobile ? (showListMobile ? 'flex w-full' : 'hidden') : 'flex'"
+      <!-- List and entry share one raised sheet -->
+      <div
+        class="flex flex-1 min-w-0 min-h-0 bg-default md:mr-3 md:rounded-t-2xl md:shadow-[0_0_0_1px_var(--ui-border)] md:overflow-hidden"
       >
-        <SearchBar />
-        <div class="flex-1 min-h-0 overflow-y-auto">
-          <EntryList />
-        </div>
-      </section>
+        <!-- Entry list -->
+        <section
+          class="flex-col min-h-0 md:flex md:w-[360px] md:shrink-0 md:border-r md:border-default"
+          :class="isMobile ? (showListMobile ? 'flex w-full' : 'hidden') : 'flex'"
+        >
+          <SearchBar />
+          <div class="flex-1 min-h-0 overflow-y-auto">
+            <EntryList />
+          </div>
+        </section>
 
-      <!-- Details -->
-      <section
-        class="min-w-0 overflow-y-auto md:flex-1 md:block"
-        :class="isMobile ? (showDetailsMobile ? 'block w-full' : 'hidden') : 'block flex-1'"
-      >
-        <EntryDetails :key="vault.selectedEntryId ?? 'none'" />
-      </section>
+        <!-- Details -->
+        <section
+          class="min-w-0 overflow-y-auto md:flex-1 md:block"
+          :class="isMobile ? (showDetailsMobile ? 'block w-full' : 'hidden') : 'block flex-1'"
+        >
+          <EntryDetails :key="vault.selectedEntryId ?? 'none'" />
+        </section>
+      </div>
     </div>
 
     <!-- Phones: places + floating action along the bottom (the open entry is full-screen) -->

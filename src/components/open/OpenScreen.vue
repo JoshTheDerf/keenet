@@ -338,15 +338,17 @@ async function onDrop(e: DragEvent): Promise<void> {
     </div>
 
     <div class="flex flex-1 items-center justify-center px-4 pb-6 sm:px-6">
-      <UCard class="w-full max-w-md" :class="{ 'kw-shake': shake }">
+      <UCard
+        class="w-full max-w-md"
+        :class="{ 'kw-shake': shake }"
+        :ui="{ root: 'rounded-3xl ring-0 shadow-[0_1px_3px_rgb(20_40_34/.12),0_0_0_1px_var(--ui-border)]', body: 'p-6 sm:p-8' }"
+      >
         <!-- branding -->
-        <div class="flex flex-col items-center gap-2 py-2 text-center">
-          <KeeNetLogo class="size-14" />
-          <h1 class="text-2xl font-semibold tracking-tight">KeeNet</h1>
-          <p class="text-sm text-muted">{{ t('openTagline') }}</p>
+        <div class="flex flex-col items-center gap-2 pb-6 text-center">
+          <KeeNetLogo class="size-16" />
+          <h1 class="text-2xl font-semibold tracking-tight text-highlighted">KeeNet</h1>
+          <p class="text-muted">{{ t('openTagline') }}</p>
         </div>
-
-        <USeparator class="my-4" />
 
         <!-- startup open (downloading a file handed to us via ?config=) -->
         <div v-if="startupLoading" class="flex flex-col items-center gap-3 py-8 text-center">
@@ -409,7 +411,7 @@ async function onDrop(e: DragEvent): Promise<void> {
 
           <!-- recent files -->
           <div v-if="recentFiles.length" class="flex flex-col gap-1">
-            <p class="px-1 text-xs font-medium uppercase tracking-wide text-dimmed">{{ t('openRecent') }}</p>
+            <p class="px-1 text-sm font-medium text-muted">{{ t('openRecent') }}</p>
             <div
               v-for="file in recentFiles"
               :key="recentKey(file)"

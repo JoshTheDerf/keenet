@@ -39,7 +39,7 @@ function open(link: string): void {
     <ReadRow v-if="user" :label="t('user')" :value="user" icon="i-lucide-user" />
     <ReadRow v-if="password" :label="t('password')" :value="password" icon="i-lucide-key-round" secret />
 
-    <div v-if="entry.otp" class="rounded-xl bg-elevated/50 px-3 py-2">
+    <div v-if="entry.otp" class="rounded-2xl bg-elevated/50 px-4 py-3">
       <OtpField :entry="entry" />
     </div>
 
@@ -64,7 +64,7 @@ function open(link: string): void {
     />
 
     <!-- Notes: long and may hold links, so a block with its own copy button -->
-    <div v-if="entry.notes" class="rounded-xl bg-elevated/50 px-3 py-2.5">
+    <div v-if="entry.notes" class="rounded-2xl bg-elevated/50 px-4 py-3.5">
       <div class="flex items-center gap-2 mb-1">
         <span class="flex-1 text-sm text-muted first-letter:uppercase">{{ t('notes') }}</span>
         <UButton

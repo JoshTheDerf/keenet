@@ -82,8 +82,10 @@ export default defineConfig(({ mode }) => {
       // Standalone Vue mode (no Nuxt). Auto-imports Nuxt UI components.
       ui: {
         colors: {
-          primary: 'blue',
-          neutral: 'slate'
+          // spruce/sage: the palette Drive and the other thederf apps use
+          // (defined in src/assets/main.css)
+          primary: 'spruce',
+          neutral: 'sage'
         },
         // Larger default control sizes (was `md`) for comfortable touch targets
         // on mobile. Dense areas (toolbars, chips) set explicit smaller sizes
@@ -96,6 +98,7 @@ export default defineConfig(({ mode }) => {
         // target. Config variant classes APPEND to the built-in theme
         // (tailwind-variants `extend`), they don't replace it.
         button: {
+          slots: { base: 'rounded-full' },
           defaultVariants: { size: 'lg' },
           variants: { size: touchButtonSizes },
           compoundVariants: touchSquareButtons
@@ -141,8 +144,8 @@ export default defineConfig(({ mode }) => {
         name: 'KeeNet',
         short_name: 'KeeNet',
         description: 'Free cross-platform password manager compatible with KeePass',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        theme_color: '#1e5e4d',
+        background_color: '#e9efec',
         display: 'standalone',
         orientation: 'any',
         start_url: '.',

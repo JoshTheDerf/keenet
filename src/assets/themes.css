@@ -6,9 +6,24 @@
  * distinctive palette (solarized, terminal, brown, high-contrast).
  */
 
-/* --- Accents (all themes) --- */
-.th-dark { --ui-primary: #4a90e2; }
-.th-light { --ui-primary: #2f6fbf; }
+/*
+ * --- Default light / dark: Drive's spruce on sage, content on a raised sheet.
+ * Darker primary/muted shades keep text at WCAG AA (as in Drive).
+ */
+.th-light {
+  --ui-primary: var(--ui-color-primary-600);
+  --ui-text-dimmed: var(--ui-color-neutral-500);
+  --ui-text-muted: var(--ui-color-neutral-600);
+  --app-canvas: #e9efec;
+}
+.th-dark {
+  --ui-primary: var(--ui-color-primary-300);
+  --ui-text-dimmed: var(--ui-color-neutral-400);
+  --ui-text-muted: var(--ui-color-neutral-400);
+  --app-canvas: var(--ui-color-neutral-950);
+}
+
+/* --- Accents --- */
 .th-fb { --ui-primary: #2196f3; }
 .th-bl { --ui-primary: #1976d2; }
 

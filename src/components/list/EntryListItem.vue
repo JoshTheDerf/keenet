@@ -83,21 +83,23 @@ defineExpose({
     v-else
     ref="root"
     :data-entry-id="entry.id"
-    class="group kw-selectable max-md:min-h-11 flex items-center gap-3 pl-3 pr-2 py-2 cursor-pointer border-b border-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-    :class="selected ? 'bg-primary/10' : 'hover:bg-elevated/50'"
+    class="group kw-selectable max-md:min-h-14 flex items-center gap-3 pl-3 pr-2 py-2.5 my-0.5 rounded-xl cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+    :class="selected ? 'bg-primary/15' : 'hover:bg-elevated/70'"
     role="option"
     :tabindex="selected ? 0 : -1"
     :aria-selected="selected"
     @click="onSelect"
     @keydown.enter.prevent="onSelect"
   >
-    <EntryIcon :icon="entry.icon" :color="entry.color" size="1.5rem" />
+    <span class="flex items-center justify-center size-10 shrink-0 rounded-full" :class="selected ? 'bg-default' : 'bg-elevated'">
+      <EntryIcon :icon="entry.icon" :color="entry.color" size="1.25rem" />
+    </span>
 
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-1.5">
         <span
           class="truncate"
-          :class="entry.title ? 'font-semibold text-highlighted' : 'text-muted italic'"
+          :class="entry.title ? 'font-medium text-highlighted' : 'text-muted italic'"
         >
           {{ entry.title || `(${t('noTitle')})` }}
         </span>

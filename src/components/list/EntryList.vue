@@ -159,7 +159,7 @@ function onKeydown(e: KeyboardEvent): void {
     <!-- Count header -->
     <div
       v-if="entries.length"
-      class="px-3 py-1.5 text-xs text-muted border-b border-default shrink-0"
+      class="px-5 pb-1 text-xs text-muted shrink-0"
     >
       {{ countLabel }}
     </div>
@@ -179,7 +179,7 @@ function onKeydown(e: KeyboardEvent): void {
     <!-- Entries (long-press or right-click a row for quick actions) -->
     <UContextMenu v-if="entries.length" :items="ctxItems" :disabled="!ctxEntry" @update:open="onCtxOpen">
       <div
-        class="flex-1 min-h-0 overflow-y-auto max-md:pb-24"
+        class="flex-1 min-h-0 overflow-y-auto px-2 pb-2 max-md:pb-24"
         :role="settings.tableView ? 'table' : 'listbox'"
         @pointerdown.capture="pickTarget"
         @contextmenu.capture="pickTarget"
@@ -198,8 +198,10 @@ function onKeydown(e: KeyboardEvent): void {
 
     <!-- Empty state -->
     <div v-else class="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
-      <UIcon name="i-lucide-inbox" class="size-10 text-muted" />
-      <p class="text-sm text-muted">{{ emptyMessage }}</p>
+      <span class="flex items-center justify-center size-16 rounded-full bg-primary/10">
+        <UIcon name="i-lucide-inbox" class="size-8 text-primary" />
+      </span>
+      <p class="text-muted">{{ emptyMessage }}</p>
 
       <!-- No database open -->
       <UButton

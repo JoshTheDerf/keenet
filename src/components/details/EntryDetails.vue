@@ -20,7 +20,6 @@ import AutoTypePanel from '@/components/details/AutoTypePanel.vue';
 import MoveEntryModal from '@/components/details/MoveEntryModal.vue';
 import ConfirmModal from '@/components/shared/ConfirmModal.vue';
 import { isDesktop } from '@/composables/useDesktop';
-import { useMediaQuery } from '@vueuse/core';
 import EntryIcon from '@/components/shared/EntryIcon.vue';
 import EntryReadView from '@/components/details/read/EntryReadView.vue';
 
@@ -65,15 +64,14 @@ function restore(): void {
 
 const desktopApp = isDesktop();
 
-// Touchscreens open an entry to read and copy; the form is one tap away.
-// A blank (new) entry opens straight in the form.
-const touch = useMediaQuery('(pointer: coarse)');
+// An entry opens to read and copy (calm, nothing to mis-edit); the form is
+// one click away. A blank (new) entry opens straight in the form.
 const blank = (() => {
   const e = vault.selectedEntry;
   return !!e && !e.title && !e.username && !e.password && !e.url && !e.notes;
 })();
 const editing = ref(blank);
-const readMode = computed(() => touch.value && !editing.value);
+const readMode = computed(() => !editing.value);
 
 function doneEditing(): void {
   commitTitle();
@@ -131,14 +129,12 @@ const moreItems = computed<DropdownMenuItem[]>(() => {
   const e = entry.value;
   if (!e) return [];
   return [
-    ...(touch.value && e.inTrash ? [{ label: t('detRestore'), icon: 'i-lucide-archive-restore', onSelect: restore }] : []),
+    ...(e.inTrash ? [{ label: t('detRestore'), icon: 'i-lucide-archive-restore', onSelect: restore }] : []),
     { label: t('detClone'), icon: 'i-lucide-copy-plus', onSelect: clone },
     ...(!e.inTrash ? [{ label: t('detMoveToGroup'), icon: 'i-lucide-folder-input', onSelect: () => (moveOpen.value = true) }] : []),
-    ...(e.historyLength ? [{ label: `${t('detHistoryItem')} (${e.historyLength})`, icon: 'i-lucide-history', onSelect: () => (showHistory.value = true) }] : [])
-    ,
-    ...(touch.value
-      ? [{ label: deleteIsPermanent.value ? t('detDelEntryPerm') : t('detDelEntry'), icon: 'i-lucide-trash-2', color: 'error' as const, onSelect: remove }]
-      : [])
+    ...(e.historyLength ? [{ label: `${t('detHistoryItem')} (${e.historyLength})`, icon: 'i-lucide-history', onSelect: () => (showHistory.value = true) }] : []),
+    { type: 'separator' as const },
+    { label: deleteIsPermanent.value ? t('detDelEntryPerm') : t('detDelEntry'), icon: 'i-lucide-trash-2', color: 'error' as const, onSelect: remove }
   ];
 });
 
@@ -239,9 +235,11 @@ function confirmDelete(): void {
 </script>
 
 <template>
-  <div v-if="!entry" class="flex h-full flex-col items-center justify-center gap-3 text-muted">
-    <UIcon name="i-lucide-key" class="size-12 opacity-40" />
-    <p class="text-sm">{{ emptyLabel }}</p>
+  <div v-if="!entry" class="flex h-full flex-col items-center justify-center gap-4 p-6 text-center text-muted">
+    <span class="flex items-center justify-center size-20 rounded-full bg-primary/10">
+      <UIcon name="i-lucide-key-round" class="size-10 text-primary" />
+    </span>
+    <p>{{ emptyLabel }}</p>
     <div class="flex items-center gap-2">
       <UButton color="primary" icon="i-lucide-plus" @click="newEntry">
         {{ t('searchAddNew') }}
@@ -254,10 +252,10 @@ function confirmDelete(): void {
     </div>
   </div>
 
-  <div v-else class="flex flex-col gap-5 p-4 max-w-3xl">
+  <div v-else class="flex flex-col gap-5 p-4 md:px-8 md:py-6 w-full max-w-2xl mx-auto">
     <!-- Header: back (phones), icon, title, then the few actions; the rest live in ⋯ -->
     <div
-      class="flex items-center gap-1.5 max-md:sticky max-md:top-0 max-md:z-10 max-md:-mx-4 max-md:-mt-4 max-md:px-2 max-md:py-1.5 max-md:bg-default/90 max-md:backdrop-blur max-md:border-b max-md:border-default"
+      class="flex items-center gap-1.5 max-md:sticky max-md:top-0 max-md:z-10 max-md:-mx-4 max-md:-mt-4 max-md:px-2 max-md:py-1.5 max-md:bg-default/90 max-md:backdrop-blur"
     >
       <UButton
         class="md:hidden"
@@ -269,8 +267,10 @@ function confirmDelete(): void {
         @click="vault.selectEntry(null)"
       />
       <template v-if="readMode">
-        <EntryIcon :icon="entry.icon" :color="entry.color" size="1.5rem" class="mx-1.5" />
-        <h1 class="flex-1 min-w-0 truncate text-lg font-semibold text-highlighted">{{ entry.title || t('noTitle') }}</h1>
+        <span class="flex items-center justify-center size-12 max-md:size-10 shrink-0 rounded-full bg-elevated mr-2 max-md:ml-1">
+          <EntryIcon :icon="entry.icon" :color="entry.color" size="1.5rem" />
+        </span>
+        <h1 class="flex-1 min-w-0 truncate text-2xl max-md:text-lg font-semibold tracking-tight text-highlighted">{{ entry.title || t('noTitle') }}</h1>
         <UButton color="primary" variant="soft" icon="i-lucide-pencil" :label="t('edit')" data-testid="edit-entry" @click="editing = true" />
       </template>
       <IconPicker v-if="!readMode" :icon="entry.icon" :color="entry.color" @select="setIcon" />
@@ -285,28 +285,8 @@ function confirmDelete(): void {
         @keydown.enter="commitTitle"
       />
       <ColorPicker v-if="!readMode" :color="entry.color" @select="setColor" />
-      <template v-if="!touch">
-      <UTooltip v-if="entry.inTrash" :text="t('detRestore')">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-archive-restore"
-          :aria-label="t('detRestore')"
-          @click="restore"
-        />
-      </UTooltip>
-      <UTooltip :text="deleteIsPermanent ? t('detDelEntryPerm') : t('detDelEntry')">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-trash-2"
-          :aria-label="deleteIsPermanent ? t('detDelEntryPerm') : t('detDelEntry')"
-          @click="remove"
-        />
-      </UTooltip>
-      </template>
       <UButton
-        v-if="touch && editing"
+        v-if="editing"
         color="primary"
         icon="i-lucide-check"
         :label="t('detDone')"

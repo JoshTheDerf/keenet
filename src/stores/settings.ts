@@ -81,8 +81,9 @@ export interface RememberedFile {
 const STORAGE_KEY = 'keeweb-settings';
 
 const DEFAULTS: PersistedSettings = {
-  theme: 'dark',
-  autoSwitchTheme: false,
+  theme: 'light',
+  // follow the system's light/dark setting, as Drive does
+  autoSwitchTheme: true,
   locale: 'en-us',
   fontSize: 0,
   tableView: false,

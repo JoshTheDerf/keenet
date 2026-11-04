@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
   appId: 'com.thederf.keenet.app',
   appName: 'KeeNet',
   webDir: 'dist',
-  backgroundColor: '#0f172a',
+  backgroundColor: '#e9efec',
   android: {
     allowMixedContent: false
   },
@@ -18,7 +18,7 @@ const config: CapacitorConfig = {
     contentInset: 'always'
   },
   plugins: {
-    StatusBar: { overlaysWebView: false, style: 'DARK', backgroundColor: '#0f172a' }
+    StatusBar: { overlaysWebView: false, style: 'LIGHT', backgroundColor: '#e9efec' }
   }
 };
 

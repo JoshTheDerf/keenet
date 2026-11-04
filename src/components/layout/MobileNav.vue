@@ -54,7 +54,7 @@ function onFab(): void {
 
 <template>
   <nav
-    class="relative shrink-0 border-t border-default bg-elevated/60 backdrop-blur pb-[env(safe-area-inset-bottom)]"
+    class="relative shrink-0 bg-[var(--app-canvas)] pb-[env(safe-area-inset-bottom)]"
     :aria-label="t('mobileNavLabel')"
     data-testid="mobile-nav"
   >
