@@ -11,6 +11,7 @@ import AuditPanel from '@/components/audit/AuditPanel.vue';
 import ImportDialog from '@/components/import/ImportDialog.vue';
 import KeeNetLogo from '@/components/shared/KeeNetLogo.vue';
 import CloseFileConfirm from '@/components/shared/CloseFileConfirm.vue';
+import { embedded, embedMenuOpen } from '@/composables/useEmbed';
 
 const vault = useVaultStore();
 const ui = useUiStore();
@@ -21,8 +22,9 @@ const { commandPaletteOpen, auditOpen, importOpen } = useOverlays();
 const issueCount = computed(() => vault.auditIssues.length);
 
 // Desktop keeps generator, audit and settings at the bottom of the menu; on
-// phones they sit in the overflow menu (and the bottom bar) instead.
+// phones (or with the embedded menu folded away) they sit in the overflow menu.
 const compact = useMediaQuery('(max-width: 767px)');
+const menuHidden = computed(() => compact.value || (embedded && !embedMenuOpen.value));
 
 /** File whose contents the current selection belongs to (falls back to first). */
 const activeFileId = computed<string | undefined>(() => {
@@ -81,7 +83,7 @@ function onLock(): void {
 // ---- overflow menu (import/export & friends) -------------------------------
 
 const overflowItems = computed<DropdownMenuItem[]>(() => [
-  ...(compact.value
+  ...(menuHidden.value
     ? [
         {
           label: t('cmdGeneratePassword'),
@@ -97,7 +99,8 @@ const overflowItems = computed<DropdownMenuItem[]>(() => [
           onSelect: () => {
             auditOpen.value = true;
           }
-        }
+        },
+        ...(compact.value ? [] : [{ label: t('settings'), icon: 'i-lucide-settings', onSelect: () => ui.openSettings() }])
       ]
     : []),
   {
@@ -127,21 +130,25 @@ const overflowItems = computed<DropdownMenuItem[]>(() => [
 
 <template>
   <header
-    class="flex items-center gap-2 sm:gap-3 h-[var(--kw-titlebar-h)] shrink-0 px-2 sm:px-3 md:pl-5 select-none"
+    class="flex items-center gap-2 sm:gap-3 h-[var(--kw-titlebar-h)] shrink-0 px-2 sm:px-3 select-none"
+    :class="embedded ? 'border-b border-default' : 'md:pl-5'"
   >
     <!-- Mobile menu toggle -->
     <UButton
-      icon="i-lucide-menu"
+      :icon="embedded && !compact ? (embedMenuOpen ? 'i-lucide-panel-left-close' : 'i-lucide-panel-left-open') : 'i-lucide-menu'"
       color="neutral"
       variant="ghost"
       size="sm"
-      class="md:hidden"
+      :class="embedded ? '' : 'md:hidden'"
       :aria-label="t('menu')"
+      :aria-expanded="embedded && !compact ? embedMenuOpen : undefined"
+      data-testid="menu-toggle"
       @click="emit('toggleMenu')"
     />
 
     <!-- Wordmark, as wide as the menu below it (dropped on phones when file tabs need the room) -->
     <div
+      v-if="!embedded"
       class="items-center gap-2.5 shrink-0 md:w-[calc(16rem-1.25rem)]"
       :class="vault.files.length ? 'hidden sm:flex' : 'flex'"
     >

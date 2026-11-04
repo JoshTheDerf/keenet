@@ -60,6 +60,10 @@ body {
 html {
   --app-canvas: var(--ui-bg-muted);
 }
+/* embedded in another app's frame: one flat surface, like the host's sheet */
+html.kw-embedded {
+  --app-canvas: var(--ui-bg);
+}
 
 @layer components {
   /* menu rows and other navigation: soft pills, tinted when active */

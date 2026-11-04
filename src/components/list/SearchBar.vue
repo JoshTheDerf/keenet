@@ -5,9 +5,26 @@ import { useUiStore } from '@/stores/ui';
 import { t } from '@/i18n';
 import type { SortField } from '@/types';
 import type { DropdownMenuItem } from '@nuxt/ui';
+import { useMediaQuery } from '@vueuse/core';
+import { embedded, embedMenuOpen } from '@/composables/useEmbed';
+import { useOverlays } from '@/composables/useOverlays';
 
 const vault = useVaultStore();
 const ui = useUiStore();
+const { otpSetupOpen } = useOverlays();
+
+// Embedded with the menu folded away (wide screens; phones have the bottom bar):
+// the menu's New button and the codes view sit here instead.
+const wide = useMediaQuery('(min-width: 768px)');
+const menuFolded = computed(() => embedded && wide.value && !embedMenuOpen.value);
+const otpView = computed(() => vault.selection.type === 'otp');
+function toggleOtpView(): void {
+  vault.setSelection(otpView.value ? { type: 'all' } : { type: 'otp' });
+}
+function onNew(): void {
+  if (otpView.value) otpSetupOpen.value = true;
+  else vault.createEntry();
+}
 
 // Focus the search box when a Ctrl/Cmd+F shortcut is requested.
 const searchInput = useTemplateRef<{ inputRef?: HTMLInputElement } & HTMLElement>('searchInput');
@@ -156,6 +173,29 @@ function onSearchKeydown(e: KeyboardEvent): void {
         </span>
       </template>
     </UInput>
+
+    <template v-if="menuFolded && vault.hasFiles">
+      <UTooltip :text="otpView ? t('menuAllItems') : t('otpCodes')">
+        <UButton
+          :color="otpView ? 'primary' : 'neutral'"
+          :variant="otpView ? 'soft' : 'ghost'"
+          icon="i-lucide-timer"
+          :aria-label="t('otpCodes')"
+          :aria-pressed="otpView"
+          data-testid="otp-toggle"
+          @click="toggleOtpView"
+        />
+      </UTooltip>
+      <UTooltip :text="otpView ? t('otpAddTitle') : t('searchAddNew')">
+        <UButton
+          color="primary"
+          :icon="otpView ? 'i-lucide-scan-line' : 'i-lucide-plus'"
+          :aria-label="otpView ? t('otpAddTitle') : t('searchAddNew')"
+          data-testid="search-new"
+          @click="onNew"
+        />
+      </UTooltip>
+    </template>
 
     <UDropdownMenu :items="viewItems" :content="{ align: 'end' }">
       <UTooltip :text="`${t('searchViewOptions')}: ${currentSortLabel}`">

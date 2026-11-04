@@ -19,6 +19,7 @@ import { useLock } from '@/composables/useLock';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 import { useBackLayer } from '@/composables/useBackNavigation';
 import MobileNav from '@/components/layout/MobileNav.vue';
+import { embedded, embedMenuOpen } from '@/composables/useEmbed';
 
 const vault = useVaultStore();
 const { copy } = useClipboard();
@@ -48,6 +49,14 @@ watch(menuOpen, async (isOpen) => {
     drawer.value?.focus();
   }
 });
+
+// Embedded on a wide screen the menu is a column the title bar folds away;
+// on phones it's the drawer as usual.
+const menuColumn = computed(() => !embedded || isMobile.value || embedMenuOpen.value);
+function toggleMenu(): void {
+  if (embedded && !isMobile.value) embedMenuOpen.value = !embedMenuOpen.value;
+  else menuOpen.value = !menuOpen.value;
+}
 
 const showDetailsMobile = computed(() => !!vault.selectedEntryId);
 const showListMobile = computed(() => !vault.selectedEntryId);
@@ -89,15 +98,16 @@ onUnmounted(() => unsubAutoType?.());
 
 <template>
   <div class="flex flex-col h-full">
-    <TitleBar @toggle-menu="menuOpen = !menuOpen" />
+    <TitleBar @toggle-menu="toggleMenu" />
 
     <div class="relative flex flex-1 min-h-0">
       <!-- Left menu: on the canvas on desktop, a slide-in drawer on mobile -->
       <aside
+        v-show="menuColumn"
         ref="drawer"
         tabindex="-1"
         class="bg-[var(--app-canvas)] overflow-y-auto z-40 w-72 shrink-0 md:static md:w-64 md:translate-x-0 fixed inset-y-0 left-0 transition-transform duration-200 outline-none"
-        :class="menuOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0'"
+        :class="[menuOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0', embedded ? 'md:border-r md:border-default' : '']"
         @keydown.escape="menuOpen = false"
       >
         <SideMenu />
@@ -112,7 +122,8 @@ onUnmounted(() => unsubAutoType?.());
 
       <!-- List and entry share one raised sheet -->
       <div
-        class="flex flex-1 min-w-0 min-h-0 bg-default md:mr-3 md:rounded-t-2xl md:shadow-[0_0_0_1px_var(--ui-border)] md:overflow-hidden"
+        class="flex flex-1 min-w-0 min-h-0 bg-default"
+        :class="embedded ? '' : 'md:mr-3 md:rounded-t-2xl md:shadow-[0_0_0_1px_var(--ui-border)] md:overflow-hidden'"
       >
         <!-- Entry list -->
         <section

@@ -3,6 +3,7 @@
 import { watchEffect } from 'vue';
 import { usePreferredDark } from '@vueuse/core';
 import { useSettingsStore, type ThemeName } from '@/stores/settings';
+import { hostTheme } from '@/composables/useEmbed';
 
 const DARK_THEMES = new Set<ThemeName>(['dark', 'sd', 'fb', 'db', 'te', 'dc']);
 
@@ -26,7 +27,9 @@ export function useTheme(): void {
     const root = document.documentElement;
     // "Auto switch": the chosen theme's light or dark twin, as the system prefers
     let theme = settings.theme;
-    if (settings.autoSwitchTheme && DARK_THEMES.has(theme) !== systemDark.value) theme = TWIN[theme];
+    // embedded: the host's light/dark choice wins; otherwise "Auto switch"
+    const wantDark = hostTheme.value ? hostTheme.value === 'dark' : settings.autoSwitchTheme ? systemDark.value : null;
+    if (wantDark !== null && DARK_THEMES.has(theme) !== wantDark) theme = TWIN[theme];
     // Remove previous th-* classes.
     root.classList.forEach((c) => {
       if (c.startsWith('th-')) root.classList.remove(c);
